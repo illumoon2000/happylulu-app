@@ -1,5 +1,14 @@
 # AfterSix 검증 기록
 
+## 2026-10-12 HappyLulu 1.5.11 build27 · 설치와 공개
+
+- [PR #32](https://github.com/young221718/happylulu-app/pull/32)를 독립 검토와 Mac·Windows CI 성공 후 main에 병합했다. 배포 소스는 `cf0d3e03d48599be080cc83719c41f2ce8febebf`다.
+- 출근·공유 근무 fixture17건·동기화 코어/서비스·모델·진단·실행·자동 설치와 배포 회귀검사28건을 통과했다. 가상 기록으로 통합 설정의 출근/일정 캘린더를 렌더했다.
+- Universal 앱의 고정 자체 인증서, ZIP·DMG·원본 앱 일치, Sparkle archive/appcast/노트 서명과 변조 거부를 확인했다. ZIP SHA-256은 `d981ccd9f906acf0d5581c07c63355d87f65d3b34b1f71741d0559ef594e1997`이다.
+- 이 Mac의 기존1.5.10 build22 앱·기록·연결 정보를 비공개 로컬 백업 후1.5.11 build27로 교체·재실행했다. 설치 실행 파일·plist·서명 자원이 후보와 같고, 출근 기록·근무 설정·쉬는 날·캘린더 연결과 fullAccess가 유지됐다.
+- 설치된 앱의 캘린더에서 선택한 양쪽 계정의 실제 일정과 동기화 상태를 확인했다. 서버 왕복·부팅/로그아웃·외부 Mac·종전 Site 피드의 자동 이전 시험은 실행하지 않았다.
+- [공개 릴리즈](https://github.com/young221718/happylulu-app/releases/tag/macos-v1.5.11-build27)의10개 자산과 고정 `macos-update-feed`를 다시 내려받아 로컬 서명본과 바이트 일치를 확인했다. 고정 feed는 prerelease이며 Latest를 유지하지 않는다. Apple Developer ID·공증은 적용하지 않았다.
+
 ## 2026-10-08 HappyLulu 1.5.10 build 21 · 로컬 설치
 
 - 캘린더 서비스52개, 코어28개, 출퇴근31개와 표시·로그인 추가 검사 통과. 반복 회차 복사·이동 예외·재실행 중복 방지·일반 알림 보존·초대 원본 보호·중복 연결의 미확정 저널 보존을 검사했다.

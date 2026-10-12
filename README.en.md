@@ -25,10 +25,10 @@
 
 | Platform | Direct download | Requirements · details |
 | --- | --- | --- |
-| **Mac 1.5.5 · build13** | [Download DMG](https://github.com/young221718/happylulu-app/releases/download/macos-v1.5.5-build13/HappyLulu-1.5.5-universal.dmg) · [ZIP](https://github.com/young221718/happylulu-app/releases/download/macos-v1.5.5-build13/HappyLulu-1.5.5-universal.zip) | macOS 13+ · Universal · [Release and checksums](https://github.com/young221718/happylulu-app/releases/tag/macos-v1.5.5-build13) |
+| **Mac 1.5.11 · build27** | [Download DMG](https://github.com/young221718/happylulu-app/releases/download/macos-v1.5.11-build27/HappyLulu-1.5.11-universal.dmg) · [ZIP](https://github.com/young221718/happylulu-app/releases/download/macos-v1.5.11-build27/HappyLulu-1.5.11-universal.zip) | macOS 13+ · Universal · [Release and checksums](https://github.com/young221718/happylulu-app/releases/tag/macos-v1.5.11-build27) |
 | **Windows 1.2.1** | [Download ZIP](https://github.com/young221718/happylulu-app/releases/download/windows-v1.2.1/HappyLulu-1.2.1-windows-x64-runtime-required.zip) | Windows 10/11 x64 · .NET 10 Desktop Runtime x64 required · [Installation guide](windows/README.en.md) |
 
-**Mac 1.5.11 · build27 is a development candidate, not a public release.** Calendar and unified settings descriptions refer to that Mac candidate. Public automatic update-feed deployment and actual installed-app validation remain incomplete. Windows has no calendar sync or built-in automatic updater.
+**Mac 1.5.11 · build27 is available.** Local replacement and relaunch preserved attendance, calendar connections and full calendar permission. Public assets and the signed feed match the validated package. Server round-trip sync remains a separate validation task. Windows has no calendar sync or built-in automatic updater.
 
 <a id="three-small-steps"></a>
 
@@ -47,7 +47,7 @@
 - **Time at a glance.** See arrival, expected departure and remaining time in the menu bar or tray. Choose five display formats and Korean or English.
 - **Your workday, your settings.** Set work and break hours, morning or afternoon half days, and the last-Friday reduction.
 - **Less record keeping.** While running, the app records the first valid screen unlock and preserves manual edits and day-off choices.
-- **Calendar details together.** The Mac candidate brings half-day recognition and optional calendar setup, previews and sync into unified settings. [Supported scope (Korean)](CALENDAR.md)
+- **Calendars together.** Browse arrival history and events from the selected calendars by month in Mac settings, with date details and sync status. Half-day recognition, connections and sync settings remain available. [Supported scope (Korean)](CALENDAR.md)
 - **Personal records stay local.** Attendance works without an account. Mac and Windows attendance records do not sync with each other.
 
 HappyLulu is a personal convenience tool, not the company's official attendance, payroll or meal-payment system.
@@ -65,7 +65,7 @@ HappyLulu is a personal convenience tool, not the company's official attendance,
 | [User guide](docs/USER-GUIDE.en.md) | Installation, settings, workday calculations, records and known limits |
 | [Windows guide](windows/README.en.md) | Runtime requirements, tray, startup and builds |
 | [Mac and Windows feature status (Korean)](docs/PLATFORM-STATUS.md) | Not planned, in development, completed, and the shared main workflow |
-| [Calendar guide (Korean)](CALENDAR.md) | Mac candidate support, connections, previews and recovery |
+| [Calendar guide (Korean)](CALENDAR.md) | Mac support, connections, previews and recovery |
 | [Mac release notes](RELEASE-NOTES.md) · [Windows release notes](windows/RELEASE-NOTES.md) | Version features and public status |
 | [Updates](UPDATES.md) · [Deployment](DEPLOYMENT.md) · [Validation](VALIDATION.md) | Signing, release preparation and remaining device checks (Korean) |
 | [Website source](site/README.md) | Product introduction and web demo |
