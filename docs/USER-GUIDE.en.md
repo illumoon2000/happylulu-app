@@ -2,7 +2,7 @@
 
 [Overview](../README.en.md) · [Downloads](../README.en.md#downloads) · [한국어](USER-GUIDE.md)
 
-Detailed installation, workday calculations, settings, calendars, records and updates. This guide describes **current source and the Mac 1.5.10 build26 candidate**, which has not been publicly released. Public downloads are Mac 1.5.5 build13 and Windows 1.2.1.
+Detailed installation, workday calculations, settings, calendars, records and updates. This guide describes **the public Mac 1.5.11 build27 release**. Public downloads are Mac 1.5.11 build27 and Windows 1.2.1.
 
 [Getting started](#three-small-steps) · [Workday calculations](#how-a-day-is-calculated) · [Calendars](#calendars-when-you-need-them) · [Records and updates](#records-and-updates) · [Development and evidence](#development-and-evidence)
 
@@ -19,11 +19,10 @@ HappyLulu is a personal convenience tool, not the company's official attendance 
 
 | Edition | Version | Status |
 | --- | --- | --- |
-| [Public Mac download](https://github.com/young221718/happylulu-app/releases/tag/macos-v1.5.5-build13) | **1.5.5 · build13** | macOS 13+ · Universal DMG/ZIP · manual installation |
+| [Public Mac download](https://github.com/young221718/happylulu-app/releases/tag/macos-v1.5.11-build27) | **1.5.11 · build27** | macOS 13+ · Universal DMG/ZIP · manual installation |
 | [Public Windows download](https://github.com/young221718/happylulu-app/releases/tag/windows-v1.2.1) | **1.2.1** | Windows 10/11 x64 · .NET 10 Desktop Runtime required |
-| [Mac candidate · main](https://github.com/young221718/happylulu-app/tree/main) | **1.5.10 · build26** | Unified settings, calendar improvements and fixed signing · not publicly released |
 
-The guide below describes the **current source and development candidate**. Check the [Mac](../RELEASE-NOTES.md) and [Windows](../windows/RELEASE-NOTES.md) notes for features in each public version. Mac and Windows attendance records do not sync with each other.
+The guide below describes the **current public version**. Check the [Mac](../RELEASE-NOTES.md) and [Windows](../windows/RELEASE-NOTES.md) notes for features in each public version. Mac and Windows attendance records do not sync with each other.
 
 ## Three small steps
 
@@ -35,7 +34,7 @@ Mac first launch attempts login-item registration and may require system approva
 
 ## Today in the menu bar. Settings in one place.
 
-The 1.5.10 candidate puts settings in one window with a sidebar, including Calendar.
+Mac puts settings in one window with a sidebar, including Calendar.
 
 | View | Controls |
 | --- | --- |
@@ -60,7 +59,7 @@ The default is eight work hours plus one break hour. Arrival windows include the
 
 Regular days finish two hours earlier on the last calendar Friday of the month. Half days use four hours without a break or an extra Friday reduction. Holidays do not move this rule to another date.
 
-The Mac candidate records the first valid **observed** login-item launch or screen unlock. Later unlocks preserve arrival, manual edits and day-off choices. Ordinary manual launch, wake and session activation do not create arrivals. The app does not reconstruct hours when it was closed or detect office location/Wi-Fi; an unlock at home may count.
+Mac records the first valid **observed** login-item launch or screen unlock. Later unlocks preserve arrival, manual edits and day-off choices. Ordinary manual launch, wake and session activation do not create arrivals. The app does not reconstruct hours when it was closed or detect office location/Wi-Fi; an unlock at home may count.
 
 Day off clears today's arrival after confirmation and suspends automatic recording. Saving a manual arrival resumes it. Extra elapsed minutes appear 30 minutes after scheduled departure; a meal time threshold appears after two hours. These do not verify work or approve payment.
 
@@ -72,7 +71,7 @@ On Mac, open **Settings → Calendar**. macOS Internet Accounts manages account 
 2. Select test calendars from different accounts.
 3. Review planned changes, holds and conflicts before starting.
 
-The 1.5.10 candidate preserves ordinary display reminders. Recurring events are copied as individual occurrences within **30 days before through 365 days after today**. Invitations become personal copies without re-inviting attendees, and the original stays protected. Automatic deletion, out-of-range occurrences and special alarms remain held with a reason.
+Mac preserves ordinary display reminders. Recurring events are copied as individual occurrences within **30 days before through 365 days after today**. Invitations become personal copies without re-inviting attendees, and the original stays protected. Automatic deletion, out-of-range occurrences and special alarms remain held with a reason.
 
 Resume a paused connection after a fresh preview. A successful local macOS calendar save is separate from confirmation on both web servers. [Calendar setup, supported fields and recovery (Korean)](../CALENDAR.md).
 
@@ -82,7 +81,7 @@ Optional half-day recognition reads accessible calendar titles. Shared events ma
 
 Mac attendance stays in `~/Library/Application Support/AfterSix/state.json`. The app identifier and existing storage path are retained. Never delete records to update the app. Calendar connection state is local; macOS manages credentials. No attendance telemetry, keyboard or screen collection is added.
 
-Automatic checking, downloading, idle installation and fixed self-signing are implemented in the candidate. **Public update-feed deployment and actual installed-app validation remain incomplete.** Older versions with updates disabled need one manual replacement with an enabled version. Track [update preparation](../UPDATES.md) and [issue #3](https://github.com/young221718/happylulu-app/issues/3).
+Automatic checking, downloading, idle installation and fixed self-signing are available. The 1.5.11 build27 local replacement preserved records, connections and calendar permission; public files and the signed feed match the validated package. This does not verify automatic migration from the old Site feed or installation on every Mac. Older versions with updates disabled need one manual replacement with an enabled version. See [updates](../UPDATES.md) and [issue #3](https://github.com/young221718/happylulu-app/issues/3).
 
 Apple Developer ID/notarization and Windows publisher signing are incomplete. Universal builds include Intel code, but Intel physical testing is pending. Follow managed-device policy. Older versions may preserve but stop writing records containing an unsupported login source; do not remove the records to downgrade.
 

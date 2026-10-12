@@ -19,7 +19,7 @@
 
 ## 새 버전 배포
 
-배포 절차와 승격 조건의 정본은 [DEPLOYMENT.md](DEPLOYMENT.md)입니다. 현재 소스는 **1.5.11 build27 후보**이며 이 변경만으로 서명·공개·실제 업데이트 시험이 완료된 것은 아닙니다.
+배포 절차와 승격 조건의 정본은 [DEPLOYMENT.md](DEPLOYMENT.md)입니다. **1.5.11 build27을 공개했고** 로컬 설치본 교체·재실행과 기록·연결·캘린더 전체 권한 보존, 공개 파일·서명 피드 바이트 일치를 확인했습니다. 이 Mac의 직접 교체 검증이며 모든 외부 Mac 또는 이전 Site 피드 앱의 자동 이전 성공을 뜻하지 않습니다.
 
 - 앱 feed: `https://github.com/young221718/happylulu-app/releases/download/macos-update-feed/appcast.xml`
 - ZIP·DMG·노트·체크섬·서명된 appcast의 보관 태그: `macos-v1.5.11-build27`

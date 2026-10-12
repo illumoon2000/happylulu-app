@@ -25,10 +25,10 @@
 
 | 운영체제 | 바로 받기 | 실행 조건 · 안내 |
 | --- | --- | --- |
-| **Mac 1.5.5 · build13** | [DMG 다운로드](https://github.com/young221718/happylulu-app/releases/download/macos-v1.5.5-build13/HappyLulu-1.5.5-universal.dmg) · [ZIP](https://github.com/young221718/happylulu-app/releases/download/macos-v1.5.5-build13/HappyLulu-1.5.5-universal.zip) | macOS 13 이상 · Universal · [릴리즈·체크섬](https://github.com/young221718/happylulu-app/releases/tag/macos-v1.5.5-build13) |
+| **Mac 1.5.11 · build27** | [DMG 다운로드](https://github.com/young221718/happylulu-app/releases/download/macos-v1.5.11-build27/HappyLulu-1.5.11-universal.dmg) · [ZIP](https://github.com/young221718/happylulu-app/releases/download/macos-v1.5.11-build27/HappyLulu-1.5.11-universal.zip) | macOS 13 이상 · Universal · [릴리즈·체크섬](https://github.com/young221718/happylulu-app/releases/tag/macos-v1.5.11-build27) |
 | **Windows 1.2.1** | [ZIP 다운로드](https://github.com/young221718/happylulu-app/releases/download/windows-v1.2.1/HappyLulu-1.2.1-windows-x64-runtime-required.zip) | Windows 10/11 x64 · .NET 10 Desktop Runtime x64 필요 · [설치 안내](windows/README.md) |
 
-**Mac 1.5.11 · build27는 개발 후보이며 공개 배포 전입니다.** 아래 캘린더·통합 설정 소개는 Mac 후보 기준입니다. 공개 자동 업데이트 피드와 실제 설치본 검증도 아직 완료하지 않았습니다. Windows에는 캘린더 동기화와 앱 자체 자동 업데이트가 없습니다.
+**Mac 1.5.11 · build27을 공개했습니다.** 로컬 앱 교체·재실행과 출근 기록·캘린더 연결·전체 접근 권한 보존, 공개 파일·서명 피드 일치를 확인했습니다. 실제 서버 왕복 동기화는 별도 검증 범위입니다. Windows에는 캘린더 동기화와 앱 자체 자동 업데이트가 없습니다.
 
 <a id="세-단계로-시작하기"></a>
 
@@ -47,8 +47,8 @@
 - **시간을 한눈에.** 출근·퇴근 예정과 남은 시간을 메뉴바·트레이에서 확인합니다. 다섯 가지 표시 단위와 한국어·영어를 지원합니다.
 - **내 근무 방식에 맞게.** 근무·휴게시간, 오전·오후 반차와 마지막 금요일 단축을 계산합니다.
 - **기록을 챙기는 수고는 가볍게.** 앱이 켜진 동안 첫 유효 잠금 해제를 출근으로 기록하고, 직접 수정과 쉬는 날 선택을 보존합니다.
-- **일정 정보도 한곳에.** Mac 개발 후보는 반차 인식과 선택형 캘린더 연결·미리보기·동기화를 통합 설정에서 관리합니다. [지원 범위](CALENDAR.md)
-- **출근과 일정을 달력으로.** Mac 1.5.11 build27 후보는 저장된 모든 달의 출근 기록과 선택한 두 캘린더의 실제 일정을 월별로 표시합니다. 날짜를 선택해 상세를 보고 마지막 동기화·다음 실행·충돌을 확인합니다. 일정 새로고침은 조회만 수행합니다.
+- **일정 정보도 한곳에.** Mac은 반차 인식과 선택형 캘린더 연결·미리보기·동기화를 통합 설정에서 관리합니다. [지원 범위](CALENDAR.md)
+- **출근과 일정을 달력으로.** Mac은 저장된 모든 달의 출근 기록과 선택한 두 캘린더의 실제 일정을 월별로 표시합니다. 날짜를 선택해 상세를 보고 마지막 동기화·다음 실행·충돌을 확인합니다. 일정 새로고침은 조회만 수행합니다.
 - **개인 기록은 내 컴퓨터에.** 출퇴근 기능은 계정 없이 사용합니다. Mac과 Windows의 기록은 서로 동기화하지 않습니다.
 
 HappyLulu는 개인 편의 도구입니다. 회사의 공식 근태 시스템이나 급여·식대 지급 증빙을 대신하지 않습니다.
@@ -66,7 +66,7 @@ HappyLulu는 개인 편의 도구입니다. 회사의 공식 근태 시스템이
 | [사용자 가이드](docs/USER-GUIDE.md) | 설치, 설정, 근무 계산, 기록과 알려진 범위 |
 | [Windows 가이드](windows/README.md) | 런타임, 트레이, 자동 실행과 빌드 |
 | [Mac·Windows 기능 현황](docs/PLATFORM-STATUS.md) | 개발 계획 없음·개발 중·개발 완료와 공통 main 운영 기준 |
-| [캘린더 안내](CALENDAR.md) | Mac 후보의 지원 범위, 연결·미리보기와 복구 |
+| [캘린더 안내](CALENDAR.md) | Mac의 지원 범위, 연결·미리보기와 복구 |
 | [Mac 변경 기록](RELEASE-NOTES.md) · [Windows 변경 기록](windows/RELEASE-NOTES.md) | 버전별 기능과 공개 상태 |
 | [업데이트](UPDATES.md) · [배포 절차](DEPLOYMENT.md) · [검증 기록](VALIDATION.md) | 서명, 배포 준비와 남은 실기기 확인 |
 | [사이트 정본](site/README.md) | 제품 소개와 웹 데모 소스 |
