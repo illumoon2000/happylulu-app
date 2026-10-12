@@ -54,6 +54,13 @@ final class CalendarSyncModel: ObservableObject {
     @Published var accountsConfirmed = false
     @Published var message: String?
 
+    @Published private(set) var displayedEvents: [SystemCalendarDisplayEvent] = []
+    @Published private(set) var isLoadingEvents = false
+    @Published private(set) var eventReadError: String?
+    @Published private(set) var eventsRevision = 0
+    private var eventReadGeneration = 0
+    private let eventDisplayAccess = SystemCalendarAccess()
+
     private let calendarAccess: any CalendarSyncAccess
     private let store: SyncStore?
     private var timer: Timer?
@@ -130,6 +137,10 @@ final class CalendarSyncModel: ObservableObject {
 
     private func invalidatePreview(_ changed: Bool) {
         guard changed else { return }
+        eventReadGeneration += 1
+        displayedEvents = []
+        eventReadError = nil
+        isLoadingEvents = false
         preview = nil
         reviewedPairKey = nil
         conflicts = []
@@ -167,6 +178,7 @@ final class CalendarSyncModel: ObservableObject {
         lastFailureAt = state.lastFailureAt
         lastFailureCode = state.lastFailureCode
         pauseReason = state.pauseReason
+        eventsRevision += 1
         appliedState = state
         if let error = state.lastErrorCode {
             message = "지난 동기화 오류: \(error)"
@@ -239,6 +251,7 @@ final class CalendarSyncModel: ObservableObject {
             if requestPermission { try await calendarAccess.requestAccess() }
             calendars = try await calendarAccess.writableCalendars()
             calendarAccessReady = true
+            eventsRevision += 1
             message = calendars.isEmpty
                 ? "쓸 수 있는 시스템 캘린더가 없습니다. 인터넷 계정에서 계정을 추가해 주세요."
                 : "시스템 캘린더 \(calendars.count)개를 찾았어요."
@@ -249,6 +262,27 @@ final class CalendarSyncModel: ObservableObject {
     }
 
     func refreshCalendars() { Task { await requestCalendarAccess() } }
+
+    func refreshDisplayedEvents() { eventsRevision += 1 }
+
+    func loadDisplayedEvents(start: Date, end: Date) async {
+        eventReadGeneration += 1
+        let generation = eventReadGeneration
+        displayedEvents = []
+        eventReadError = nil
+        let ids = [selectedDaouCalendar, selectedGoogleCalendar].filter { !$0.isEmpty }
+        guard !ids.isEmpty else { isLoadingEvents = false; return }
+        isLoadingEvents = true
+        defer { if generation == eventReadGeneration { isLoadingEvents = false } }
+        do {
+            let events = try await eventDisplayAccess.displayEvents(calendarIDs: ids, start: start, end: end)
+            guard generation == eventReadGeneration, !Task.isCancelled else { return }
+            displayedEvents = events
+        } catch {
+            guard generation == eventReadGeneration, !Task.isCancelled else { return }
+            eventReadError = error.localizedDescription
+        }
+    }
 
     func openInternetAccounts() {
         guard let url = URL(string: "x-apple.systempreferences:com.apple.Internet-Accounts-Settings.extension") else { return }

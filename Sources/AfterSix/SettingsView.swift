@@ -2,6 +2,8 @@ import SwiftUI
 import ServiceManagement
 import AfterSixCore
 
+private typealias SettingsState<Value> = SwiftUI.State<Value>
+
 enum SettingsSection: String, CaseIterable, Identifiable {
     case general, work, history, calendar, updates
 
@@ -19,7 +21,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         switch self {
         case .general: "gearshape"
         case .work: "clock"
-        case .history: "list.bullet.rectangle"
+        case .history: "calendar"
         case .calendar: "calendar"
         case .updates: "arrow.down.circle"
         }
@@ -28,7 +30,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         switch self {
         case .general: L("언어와 앱 실행 방식을 관리합니다.", "Manage language and app launch behavior.")
         case .work: L("근무 시간과 휴게 시간을 설정합니다.", "Set your work and break hours.")
-        case .history: L("내 컴퓨터에 저장된 최근 출근 기록입니다.", "Recent arrivals saved on this Mac.")
+        case .history: L("저장된 출근 기록을 월별로 확인합니다.", "Browse saved arrivals by month.")
         case .calendar: L("반차 인식과 캘린더 동기화를 관리합니다.", "Manage half-day detection and calendar sync.")
         case .updates: L("앱 버전과 자동 업데이트를 관리합니다.", "Manage the app version and automatic updates.")
         }
@@ -46,6 +48,7 @@ struct SettingsView: View {
     @ObservedObject private var language = AppLanguage.shared
     @ObservedObject var calendarSync: CalendarSyncModel
     @ObservedObject var navigation: SettingsNavigation
+    @SettingsState private var showSyncSettings = false
     private let accent = Color(red: 0.16, green: 0.48, blue: 0.42)
     private var selectedLocale: Locale { _ = language.choice; return displayLocale }
 
@@ -74,8 +77,16 @@ struct SettingsView: View {
                     case .work: workSection
                     case .history: historySection
                     case .calendar:
-                        calendarSection
-                        CalendarSyncSettingsView(model: calendarSync)
+                        Picker(L("캘린더 화면", "Calendar view"), selection: $showSyncSettings) {
+                            Text(L("동기화 일정", "Synced events")).tag(false)
+                            Text(L("동기화 설정", "Sync settings")).tag(true)
+                        }.pickerStyle(.segmented)
+                        if showSyncSettings {
+                            calendarSection
+                            CalendarSyncSettingsView(model: calendarSync)
+                        } else {
+                            SyncedEventsCalendarView(model: calendarSync, onOpenSettings: { showSyncSettings = true })
+                        }
                     case .updates: updatesSection
                     }
                     if let error = model.errorMessage {
@@ -89,6 +100,7 @@ struct SettingsView: View {
             .id(selectedSection)
         }
         .frame(minWidth: 820, minHeight: 620)
+        .onAppear { model.refresh(); calendarSync.prepareForDisplay() }
         .tint(accent)
         .environment(\.locale, selectedLocale)
     }
@@ -128,33 +140,9 @@ struct SettingsView: View {
     }
 
     private var historySection: some View {
-        GroupBox(L("최근 출근 기록", "Recent arrivals")) {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Spacer()
-                    Button(L("기록 폴더 열기", "Open records folder")) { model.showData() }
-                }
-                let records = model.state.arrivals.values.sorted { $0.day > $1.day }.prefix(7)
-                if records.isEmpty {
-                    Text(L("아직 저장된 출근 기록이 없어요.", "No arrivals saved yet.")).foregroundStyle(.secondary)
-                }
-                ForEach(Array(records), id: \.day) { record in
-                    HStack(spacing: 10) {
-                        Text(displayDayKey(record.day))
-                        if record.mode != .normal {
-                            Text(record.mode.displayLabel).foregroundStyle(accent)
-                        }
-                        Spacer()
-                        Text(displayClock(record.time,
-                            timeZone: TimeZone(identifier: record.timeZoneID) ?? .current))
-                            .monospacedDigit()
-                        Image(systemName: record.source == .manual ? "pencil" : (record.source == .login ? "power" : "lock.open"))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(8)
+        VStack(alignment: .leading, spacing: 12) {
+            AttendanceCalendarView(model: model)
+            Button(L("기록 폴더 열기", "Open records folder")) { model.showData() }
         }
     }
 

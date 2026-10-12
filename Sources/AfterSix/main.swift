@@ -43,7 +43,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         popover.behavior = .transient
         popover.contentSize = NSSize(width: 364, height: 470)
-        popover.contentViewController = NSHostingController(rootView: PanelView(model: model, onOpenSettings: { [weak self] in
+        popover.contentViewController = NSHostingController(rootView: PanelView(model: model, calendarSync: calendarSync, onOpenHistory: { [weak self] in
+            self?.openSettings(section: .history)
+        }, onOpenSettings: { [weak self] in
             self?.openSettings()
         }))
         observation = model.objectWillChange.sink { [weak self] _ in

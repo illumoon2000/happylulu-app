@@ -619,6 +619,7 @@ func testGoogleSlashTitleIsExcluded() throws {
 }
 
 let checks: [(String, () async throws -> Void)] = [
+    ("display read selection and range boundaries", testDisplayReadSelectionAndRangeBoundaries),
     ("preview preserves failure history", testSuccessfulPreviewKeepsFailureHistory),
     ("coordinator persists protected origin", testCoordinatorPersistsInvitationProtection),
     ("conflict protects invitation origin", testConflictCannotWriteProtectedInvitation),

@@ -45,6 +45,16 @@ public struct SystemCalendarSummary: Identifiable, Equatable, Sendable {
 
 /// Reads the accounts already configured in macOS Calendar. HappyLulu never
 /// receives the Google or CalDAV passwords used by Internet Accounts.
+public struct SystemCalendarDisplayEvent: Identifiable, Sendable {
+    public let id: String
+    public let calendarID: String
+    public let title: String
+    public let start: Date
+    public let end: Date
+    public let isAllDay: Bool
+    public let location: String?
+}
+
 public actor SystemCalendarAccess {
     private let store = EKEventStore()
 
@@ -85,6 +95,26 @@ public actor SystemCalendarAccess {
                 ($0.accountName == $1.accountName &&
                  $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending)
             }
+    }
+
+    /// Display includes recurring/invited events even when the sync writer cannot safely copy them.
+    public func displayEvents(calendarIDs: [String], start: Date, end: Date) throws -> [SystemCalendarDisplayEvent] {
+        guard start < end else { throw SystemCalendarError.invalidDate }
+        guard !calendarIDs.isEmpty else { return [] }
+        guard EKEventStore.authorizationStatus(for: .event) == .authorized || fullAccessGranted else {
+            throw SystemCalendarError.accessDenied
+        }
+        let selected = try Set(calendarIDs).map { id in
+            guard let calendar = store.calendar(withIdentifier: id) else { throw SystemCalendarError.calendarMissing }
+            return calendar
+        }
+        let predicate = store.predicateForEvents(withStart: start, end: end, calendars: selected)
+        return store.events(matching: predicate).map { event in
+            SystemCalendarDisplayEvent(
+                id: "\(event.calendar.calendarIdentifier)|\(event.eventIdentifier ?? event.calendarItemIdentifier)|\(event.startDate.timeIntervalSince1970)",
+                calendarID: event.calendar.calendarIdentifier, title: event.title ?? "제목 없음",
+                start: event.startDate, end: event.endDate, isAllDay: event.isAllDay, location: event.location)
+        }.sorted { ($0.start, $0.title, $0.id) < ($1.start, $1.title, $1.id) }
     }
 
     private var fullAccessGranted: Bool {

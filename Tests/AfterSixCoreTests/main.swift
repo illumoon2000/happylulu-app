@@ -28,6 +28,7 @@ func expectThrows<T>(_ value: @autoclosure () throws -> T, file: StaticString = 
 
 let tests = AttendanceTests()
 let checks: [(String, () throws -> Void)] = [
+    ("Month grid, leap year, year rollover and exclusive event ends across DST", checkCalendarMonth),
     ("Arrival windows and automatic morning half", tests.testArrivalWindowsAndAutomaticMorningHalf),
     ("First unlock wins", tests.testLaterUnlockDoesNotReplaceFirstArrival),
     ("New day", tests.testNewDayHasIndependentFirstUnlock),

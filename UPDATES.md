@@ -19,18 +19,18 @@
 
 ## 새 버전 배포
 
-배포 절차와 승격 조건의 정본은 [DEPLOYMENT.md](DEPLOYMENT.md)입니다. 현재 소스는 **1.5.10 build26 후보**이며 이 변경만으로 서명·공개·실제 업데이트 시험이 완료된 것은 아닙니다.
+배포 절차와 승격 조건의 정본은 [DEPLOYMENT.md](DEPLOYMENT.md)입니다. 현재 소스는 **1.5.11 build27 후보**이며 이 변경만으로 서명·공개·실제 업데이트 시험이 완료된 것은 아닙니다.
 
 - 앱 feed: `https://github.com/young221718/happylulu-app/releases/download/macos-update-feed/appcast.xml`
-- ZIP·DMG·노트·체크섬·서명된 appcast의 보관 태그: `macos-v1.5.10-build26`
+- ZIP·DMG·노트·체크섬·서명된 appcast의 보관 태그: `macos-v1.5.11-build27`
 - `macos-update-feed`는 mutable prerelease이며 Latest로 표시하지 않습니다. 서명한 XML을 수정하지 않고 그대로 올립니다.
 - 소스의 LICENSE와 THIRD_PARTY_NOTICES.md를 앱 Resources, ZIP 내부 앱, DMG와 릴리스 자산에 동봉합니다. 과거 바이너리는 다시 포장하거나 새 라이선스가 소급 동봉된 것으로 표시하지 않습니다.
 - 공개 CI는 검증과 ad-hoc Universal 패키지 artifact만 만듭니다. 로컬 서명키나 키체인 정보를 GitHub Secrets에 넣지 않습니다.
 
 ```sh
 bash scripts/prepare-release.sh
-python3 scripts/release_delivery.py check dist/releases/1.5.10-build26
-python3 scripts/release_delivery.py draft dist/releases/1.5.10-build26 --dry-run
+python3 scripts/release_delivery.py check dist/releases/1.5.11-build27
+python3 scripts/release_delivery.py draft dist/releases/1.5.11-build27 --dry-run
 ```
 
 `prepare-release.sh`는 사용자가 승인한 로컬 키체인 서명만 사용합니다. 실제 GitHub 쓰기는 별도 `draft`와 `promote` 명령입니다. `check`와 `--dry-run`은 GitHub에 접속하지 않습니다. 실제 HappyLulu 교체·재실행, 캘린더 권한·출근 기록·캘린더 연결 보존 증거가 이 ZIP 해시와 일치하지 않으면 승격하지 못합니다.
