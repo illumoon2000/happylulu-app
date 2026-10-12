@@ -158,6 +158,7 @@ string root = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "happylulu-ch
 try
 {
     var store = new StateStore(System.IO.Path.Combine(root, "state.json"));
+    Check(Attendance.RecordUnlock(state, At(2026, 10, 24, 6, 0)), "early arrival prepared for persistence");
     state.Language = UiLanguage.Korean;
     state.RemainingTimeUnit = RemainingTimeUnit.Hours;
     store.Save(state);
@@ -165,6 +166,9 @@ try
     Check(loaded.Arrivals.Count == state.Arrivals.Count && loaded.SuppressedDays.SetEquals(state.SuppressedDays),
           "local state round trip");
     Check(loaded.Language == UiLanguage.Korean, "language preference round trip");
+    Check(loaded.Arrivals["2026-10-24"].Time == At(2026, 10, 24, 8, 0), "normalized arrival survives restart");
+    Check(!Attendance.RecordUnlock(loaded, At(2026, 10, 24, 9, 0)) &&
+          loaded.Arrivals["2026-10-24"].Time == At(2026, 10, 24, 8, 0), "restart keeps first normalized arrival");
     Check(loaded.RemainingTimeUnit == RemainingTimeUnit.Hours && loaded.Copy().RemainingTimeUnit == RemainingTimeUnit.Hours,
           "remaining unit persists and survives copy");
     string original = File.ReadAllText(store.Path);

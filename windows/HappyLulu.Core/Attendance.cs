@@ -85,10 +85,12 @@ public static class Attendance
     {
         state.LastUnlockAt = at;
         string day = DayKey(at);
-        WorkdayMode? mode = AutomaticMode(at);
+        DateTimeOffset recordedAt = at.Hour is >= 6 and < 8
+            ? new DateTimeOffset(at.Year, at.Month, at.Day, 8, 0, 0, at.Offset) : at;
+        WorkdayMode? mode = AutomaticMode(recordedAt);
         if (mode is null || state.Arrivals.ContainsKey(day) || state.SuppressedDays.Contains(day))
             return false;
-        state.Arrivals[day] = new Arrival { Day = day, Time = at, Source = ArrivalSource.Unlock, Mode = mode.Value };
+        state.Arrivals[day] = new Arrival { Day = day, Time = recordedAt, Source = ArrivalSource.Unlock, Mode = mode.Value };
         return true;
     }
 

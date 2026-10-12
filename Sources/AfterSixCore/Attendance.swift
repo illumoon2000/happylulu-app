@@ -175,10 +175,13 @@ public enum Attendance {
                                         source: ArrivalSource, calendar: Calendar,
                                         calendarMode: WorkdayMode?) -> Bool {
         let day = dayKey(date, calendar: calendar)
-        guard let mode = automaticMode(at: date, calendar: calendar, calendarMode: calendarMode),
+        let minute = calendar.component(.hour, from: date) * 60 + calendar.component(.minute, from: date)
+        let recordedAt = (6 * 60..<8 * 60).contains(minute)
+            ? calendar.date(bySettingHour: 8, minute: 0, second: 0, of: date) ?? date : date
+        guard let mode = automaticMode(at: recordedAt, calendar: calendar, calendarMode: calendarMode),
               state.arrivals[day] == nil,
               !state.suppressedDays.contains(day) else { return false }
-        state.arrivals[day] = Arrival(day: day, time: date, source: source,
+        state.arrivals[day] = Arrival(day: day, time: recordedAt, source: source,
                                       timeZoneID: calendar.timeZone.identifier,
                                       mode: mode, modeSource: .automatic)
         return true

@@ -4,7 +4,7 @@
 
 - `dist/`: 빌드 없이 게시할 한·영 HTML/CSS/JS와 브랜드 원본 이미지
 - `.openai/hosting.json`: 기존 공식 Sites project_id·공개 범위를 보존하는 정적 배포 선언
-- 다운로드: Mac1.5.11 build27 / Windows1.2.1의 GitHub Releases 고정 링크
+- 다운로드: Mac1.5.12 build28 / Windows1.5.12의 GitHub Releases 고정 링크
 - 기존 사이트 다운로드 URL은 이전 파일을 보존해 호환합니다. 새 사이트 원본에 앱 바이너리를 커밋하지 않습니다.
 
 ```sh

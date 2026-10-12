@@ -144,7 +144,7 @@ struct PanelView: View {
             } else {
                 Text(model.isSkipped ? L("오늘은 쉬어가요", "Take today off") : L("출근 기록 대기", "Waiting for arrival"))
                     .font(.system(size: 28, weight: .semibold, design: .rounded))
-                Text(model.isSkipped ? L("오늘 자동 기록을 쉬고 있어요.", "Automatic recording is paused today.") : L("일반·오후 반차 08:00~10:00, 오전 반차 13:00~15:00", "Regular or afternoon off: 08:00–10:00; morning off: 13:00–15:00"))
+                Text(model.isSkipped ? L("오늘 자동 기록을 쉬고 있어요.", "Automatic recording is paused today.") : L("자동 감지 06:00~10:00 · 08시 이전은 08시 기록 · 오전 반차 13:00~15:00", "Automatic: 06:00–10:00; before 08:00 recorded at 08:00. Morning off: 13:00–15:00"))
                     .font(.system(size: 12)).foregroundStyle(.secondary)
                 Text(L("이미 출근했다면 아래에서 시각을 입력해 주세요.", "Already at work? Enter your arrival time below."))
                     .font(.system(size: 11)).foregroundStyle(.secondary)
