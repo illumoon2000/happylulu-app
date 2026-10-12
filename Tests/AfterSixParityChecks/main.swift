@@ -19,6 +19,7 @@ struct Case: Decodable {
 struct Expected: Decodable {
     let departureMinutes: Int
     let arrivalAllowed: Bool
+    let automaticRecordedAt: String?
 }
 
 struct CheckFailure: Error, CustomStringConvertible {
@@ -61,6 +62,16 @@ do {
                     "\(sample.id): departure minutes expected \(sample.expected.departureMinutes), got \(minutes)")
         try require(allowed == sample.expected.arrivalAllowed,
                     "\(sample.id): arrival eligibility expected \(sample.expected.arrivalAllowed), got \(allowed)")
+        if let expected = sample.expected.automaticRecordedAt {
+            var state = AttendanceState()
+            let recorded = Attendance.recordUnlock(in: &state, at: at, calendar: calendar)
+            try require(recorded == !expected.isEmpty, "\(sample.id): automatic eligibility differs")
+            if !expected.isEmpty {
+                guard let normalized = format.date(from: expected) else { throw CheckFailure("Invalid expected automatic time") }
+                try require(Attendance.today(in: state, now: at, calendar: calendar)?.time == normalized,
+                            "\(sample.id): automatic recorded time differs")
+            }
+        }
     }
     print("PASS Swift shared attendance: \(ids.count) cases")
 } catch {

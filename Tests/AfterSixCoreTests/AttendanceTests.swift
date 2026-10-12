@@ -14,7 +14,7 @@ final class AttendanceTests {
 
     func testArrivalWindowsAndAutomaticMorningHalf() {
         var state = AttendanceState()
-        for time in ["07:59:59", "10:01:00", "12:59:59", "15:01:00"] {
+        for time in ["05:59:59", "10:01:00", "12:59:59", "15:01:00"] {
             expectFalse(Attendance.recordUnlock(in: &state, at: date("2026-09-28T" + time), calendar: calendar))
         }
         expectTrue(Attendance.recordUnlock(in: &state, at: date("2026-09-28T08:00:00"), calendar: calendar))

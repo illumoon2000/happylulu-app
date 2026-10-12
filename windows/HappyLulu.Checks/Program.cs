@@ -11,6 +11,42 @@ void Check(bool condition, string name)
 DateTimeOffset At(int year, int month, int day, int hour, int minute) =>
     new(year, month, day, hour, minute, 0, TimeSpan.FromHours(9));
 
+foreach (var sample in new[] {
+    (Hour: 5, Minute: 59, Second: 59, Expected: (DateTimeOffset?)null),
+    (Hour: 6, Minute: 0, Second: 0, Expected: (DateTimeOffset?)At(2026, 10, 23, 8, 0)),
+    (Hour: 7, Minute: 59, Second: 59, Expected: (DateTimeOffset?)At(2026, 10, 23, 8, 0)),
+    (Hour: 8, Minute: 0, Second: 0, Expected: (DateTimeOffset?)At(2026, 10, 23, 8, 0)),
+    (Hour: 9, Minute: 12, Second: 30, Expected: (DateTimeOffset?)At(2026, 10, 23, 9, 12).AddSeconds(30)) })
+{
+    var earlyState = new AttendanceState();
+    var observed = At(2026, 10, 23, sample.Hour, sample.Minute).AddSeconds(sample.Second);
+    Check(Attendance.RecordUnlock(earlyState, observed) == (sample.Expected is not null), "early unlock eligibility: " + observed);
+    Check(Attendance.Today(earlyState, observed)?.Time == sample.Expected, "normalized early arrival: " + observed);
+    Check(earlyState.LastUnlockAt == observed, "actual unlock timestamp retained");
+    if (sample.Expected is not null)
+    {
+        var arrival = earlyState.Arrivals["2026-10-23"];
+        Check(Attendance.Departure(arrival, earlyState.Settings) == sample.Expected.Value.AddHours(9), "normalized start drives departure");
+        Check(!Attendance.RecordUnlock(earlyState, At(2026, 10, 23, 9, 30)) &&
+              Attendance.Today(earlyState, observed)?.Time == sample.Expected, "later unlock preserves normalized first arrival");
+    }
+}
+foreach (var mode in Enum.GetValues<WorkdayMode>())
+{
+    var manualState = new AttendanceState();
+    bool earlyRejected = false;
+    try { Attendance.SetManual(manualState, At(2026, 10, 23, 7, 0), At(2026, 10, 23, 9, 0), mode); }
+    catch (ArgumentException) { earlyRejected = true; }
+    Check(earlyRejected && manualState.Arrivals.Count == 0, "manual early input remains invalid: " + mode);
+}
+var protectedState = new AttendanceState();
+Attendance.SetManual(protectedState, At(2026, 10, 23, 8, 30), At(2026, 10, 23, 9, 0), WorkdayMode.AfternoonHalf);
+Check(!Attendance.RecordUnlock(protectedState, At(2026, 10, 23, 6, 0)) &&
+      protectedState.Arrivals["2026-10-23"].Time == At(2026, 10, 23, 8, 30) &&
+      protectedState.Arrivals["2026-10-23"].Mode == WorkdayMode.AfternoonHalf, "manual half-day record protected from early event");
+Attendance.SkipToday(protectedState, At(2026, 10, 23, 6, 0));
+Check(!Attendance.RecordUnlock(protectedState, At(2026, 10, 23, 6, 0)) && protectedState.Arrivals.Count == 0,
+      "day off suppresses early arrival");
 var state = new AttendanceState();
 var first = At(2026, 10, 2, 8, 30);
 Check(Attendance.RecordUnlock(state, first), "first observed unlock records arrival");
@@ -24,7 +60,7 @@ Check(Attendance.RecordUnlock(state, At(2026, 10, 30, 8, 30)) &&
       "last Friday shortens normal day by two hours");
 Check(Attendance.RemainingMinutes(At(2026, 10, 2, 15, 30), At(2026, 10, 2, 15, 29)) == 1,
       "remaining minute rounds up");
-Check(!Attendance.RecordUnlock(state, At(2026, 10, 3, 7, 59)), "early unlock is not an arrival");
+Check(!Attendance.RecordUnlock(state, At(2026, 10, 3, 5, 59)), "early unlock is not an arrival");
 Check(Attendance.RecordUnlock(state, At(2026, 10, 3, 13, 30)), "afternoon unlock infers morning half day");
 Check(Attendance.Today(state, At(2026, 10, 3, 14, 0))?.Mode == WorkdayMode.MorningHalf,
       "morning half day mode persisted");

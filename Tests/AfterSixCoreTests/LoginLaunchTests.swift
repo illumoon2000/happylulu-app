@@ -43,7 +43,7 @@ func checkLoginLaunch() throws {
     expectTrue(Attendance.recordLogin(in: &state, at: t.date("2026-10-08T09:00:00"), calendar: t.calendar))
     print("PASS login arrival: observed time/source, duplicate/unlock/manual/day-off preservation, next day, Codable round trip")
 
-    for (time, allowed) in [("07:59:59", false), ("08:00:00", true), ("10:00:59", true),
+    for (time, allowed) in [("05:59:59", false), ("06:00:00", true), ("07:59:59", true), ("08:00:00", true), ("10:00:59", true),
                             ("10:01:00", false), ("12:59:59", false), ("13:00:00", true),
                             ("15:00:59", true), ("15:01:00", false)] {
         var state = AttendanceState()

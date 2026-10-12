@@ -98,7 +98,8 @@
       "breakMinutes": 60,
       "expected": {
         "departureMinutes": 540,
-        "arrivalAllowed": false
+        "arrivalAllowed": false,
+        "automaticRecordedAt": "2026-10-23T08:00:00+09:00"
       }
     },
     {
@@ -109,7 +110,8 @@
       "breakMinutes": 60,
       "expected": {
         "departureMinutes": 540,
-        "arrivalAllowed": true
+        "arrivalAllowed": true,
+        "automaticRecordedAt": "2026-10-23T08:00:00+09:00"
       }
     },
     {
@@ -187,6 +189,42 @@
       "expected": {
         "departureMinutes": 540,
         "arrivalAllowed": true
+      }
+    },
+    {
+      "id": "before-six",
+      "at": "2026-10-23T05:59:59+09:00",
+      "mode": "normal",
+      "workMinutes": 480,
+      "breakMinutes": 60,
+      "expected": {
+        "departureMinutes": 540,
+        "arrivalAllowed": false,
+        "automaticRecordedAt": ""
+      }
+    },
+    {
+      "id": "at-six",
+      "at": "2026-10-23T06:00:00+09:00",
+      "mode": "normal",
+      "workMinutes": 480,
+      "breakMinutes": 60,
+      "expected": {
+        "departureMinutes": 540,
+        "arrivalAllowed": false,
+        "automaticRecordedAt": "2026-10-23T08:00:00+09:00"
+      }
+    },
+    {
+      "id": "utc-early-in-seoul",
+      "at": "2026-10-22T21:00:00Z",
+      "mode": "normal",
+      "workMinutes": 480,
+      "breakMinutes": 60,
+      "expected": {
+        "departureMinutes": 540,
+        "arrivalAllowed": false,
+        "automaticRecordedAt": "2026-10-23T08:00:00+09:00"
       }
     }
   ]
