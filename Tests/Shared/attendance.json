@@ -1,0 +1,193 @@
+{
+  "schema": 1,
+  "timeZone": "Asia/Seoul",
+  "cases": [
+    {
+      "id": "regular-friday",
+      "at": "2026-10-23T09:00:00+09:00",
+      "mode": "normal",
+      "workMinutes": 480,
+      "breakMinutes": 60,
+      "expected": {
+        "departureMinutes": 540,
+        "arrivalAllowed": true
+      }
+    },
+    {
+      "id": "last-friday",
+      "at": "2026-10-30T09:00:00+09:00",
+      "mode": "normal",
+      "workMinutes": 480,
+      "breakMinutes": 60,
+      "expected": {
+        "departureMinutes": 420,
+        "arrivalAllowed": true
+      }
+    },
+    {
+      "id": "morning-half",
+      "at": "2026-10-23T13:00:00+09:00",
+      "mode": "morningHalf",
+      "workMinutes": 480,
+      "breakMinutes": 60,
+      "expected": {
+        "departureMinutes": 240,
+        "arrivalAllowed": true
+      }
+    },
+    {
+      "id": "afternoon-half",
+      "at": "2026-10-23T09:00:00+09:00",
+      "mode": "afternoonHalf",
+      "workMinutes": 480,
+      "breakMinutes": 60,
+      "expected": {
+        "departureMinutes": 240,
+        "arrivalAllowed": true
+      }
+    },
+    {
+      "id": "last-friday-morning-half",
+      "at": "2026-10-30T13:00:00+09:00",
+      "mode": "morningHalf",
+      "workMinutes": 480,
+      "breakMinutes": 60,
+      "expected": {
+        "departureMinutes": 240,
+        "arrivalAllowed": true
+      }
+    },
+    {
+      "id": "last-friday-afternoon-half",
+      "at": "2026-10-30T09:00:00+09:00",
+      "mode": "afternoonHalf",
+      "workMinutes": 480,
+      "breakMinutes": 60,
+      "expected": {
+        "departureMinutes": 240,
+        "arrivalAllowed": true
+      }
+    },
+    {
+      "id": "last-friday-short-workday",
+      "at": "2026-10-30T09:00:00+09:00",
+      "mode": "normal",
+      "workMinutes": 60,
+      "breakMinutes": 0,
+      "expected": {
+        "departureMinutes": 0,
+        "arrivalAllowed": true
+      }
+    },
+    {
+      "id": "custom-hours",
+      "at": "2026-10-23T09:00:00+09:00",
+      "mode": "normal",
+      "workMinutes": 360,
+      "breakMinutes": 60,
+      "expected": {
+        "departureMinutes": 420,
+        "arrivalAllowed": true
+      }
+    },
+    {
+      "id": "normal-window-07:59:59",
+      "at": "2026-10-23T07:59:59+09:00",
+      "mode": "normal",
+      "workMinutes": 480,
+      "breakMinutes": 60,
+      "expected": {
+        "departureMinutes": 540,
+        "arrivalAllowed": false
+      }
+    },
+    {
+      "id": "normal-window-08:00:00",
+      "at": "2026-10-23T08:00:00+09:00",
+      "mode": "normal",
+      "workMinutes": 480,
+      "breakMinutes": 60,
+      "expected": {
+        "departureMinutes": 540,
+        "arrivalAllowed": true
+      }
+    },
+    {
+      "id": "normal-window-10:00:59",
+      "at": "2026-10-23T10:00:59+09:00",
+      "mode": "normal",
+      "workMinutes": 480,
+      "breakMinutes": 60,
+      "expected": {
+        "departureMinutes": 540,
+        "arrivalAllowed": true
+      }
+    },
+    {
+      "id": "normal-window-10:01:00",
+      "at": "2026-10-23T10:01:00+09:00",
+      "mode": "normal",
+      "workMinutes": 480,
+      "breakMinutes": 60,
+      "expected": {
+        "departureMinutes": 540,
+        "arrivalAllowed": false
+      }
+    },
+    {
+      "id": "morning-window-12:59:59",
+      "at": "2026-10-23T12:59:59+09:00",
+      "mode": "morningHalf",
+      "workMinutes": 480,
+      "breakMinutes": 60,
+      "expected": {
+        "departureMinutes": 240,
+        "arrivalAllowed": false
+      }
+    },
+    {
+      "id": "morning-window-13:00:00",
+      "at": "2026-10-23T13:00:00+09:00",
+      "mode": "morningHalf",
+      "workMinutes": 480,
+      "breakMinutes": 60,
+      "expected": {
+        "departureMinutes": 240,
+        "arrivalAllowed": true
+      }
+    },
+    {
+      "id": "morning-window-15:00:59",
+      "at": "2026-10-23T15:00:59+09:00",
+      "mode": "morningHalf",
+      "workMinutes": 480,
+      "breakMinutes": 60,
+      "expected": {
+        "departureMinutes": 240,
+        "arrivalAllowed": true
+      }
+    },
+    {
+      "id": "morning-window-15:01:00",
+      "at": "2026-10-23T15:01:00+09:00",
+      "mode": "morningHalf",
+      "workMinutes": 480,
+      "breakMinutes": 60,
+      "expected": {
+        "departureMinutes": 240,
+        "arrivalAllowed": false
+      }
+    },
+    {
+      "id": "utc-arrival-in-seoul",
+      "at": "2026-10-23T00:00:00Z",
+      "mode": "normal",
+      "workMinutes": 480,
+      "breakMinutes": 60,
+      "expected": {
+        "departureMinutes": 540,
+        "arrivalAllowed": true
+      }
+    }
+  ]
+}

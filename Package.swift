@@ -15,6 +15,7 @@ let package = Package(
             .product(name: "Sparkle", package: "Sparkle")],
             linkerSettings: [.unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"])]),
         .executableTarget(name: "AfterSixChecks", dependencies: ["AfterSixCore", "MacLaunchSupport"], path: "Tests/AfterSixCoreTests"),
+        .executableTarget(name: "AfterSixParityChecks", dependencies: ["AfterSixCore"], path: "Tests/AfterSixParityChecks"),
         .executableTarget(name: "CalendarSyncChecks", dependencies: ["CalendarSyncCore"], path: "Tests/CalendarSyncCoreTests"),
         .executableTarget(name: "CalendarSyncServiceChecks", dependencies: ["CalendarSyncCore", "CalendarSyncServices"], path: "Tests/CalendarSyncServicesTests"),
         .executableTarget(name: "AppUpdateChecks", dependencies: [.product(name: "Sparkle", package: "Sparkle")],

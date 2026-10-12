@@ -5,6 +5,7 @@ on:
     branches: [main, 'cy-agent/**', 'codex/**']
     paths:
       - 'Sources/**'
+      - 'windows/HappyLulu.Core/**'
       - 'Tests/**'
       - 'Resources/**'
       - 'scripts/**'
@@ -17,6 +18,7 @@ on:
   pull_request:
     paths:
       - 'Sources/**'
+      - 'windows/HappyLulu.Core/**'
       - 'Tests/**'
       - 'Resources/**'
       - 'scripts/**'
@@ -53,6 +55,7 @@ jobs:
       - name: Check attendance and calendar logic
         run: |
           swift run --build-system native AfterSixChecks
+          swift run --build-system native AfterSixParityChecks Tests/Shared/attendance.json
           swift run --build-system native CalendarSyncChecks
           swift run --build-system native CalendarSyncServiceChecks
       - name: Check isolated calendar and updater integration
