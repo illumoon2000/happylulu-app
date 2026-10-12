@@ -2,7 +2,7 @@
 
 [Overview](../README.en.md) · [Downloads](../README.en.md#downloads) · [한국어](USER-GUIDE.md)
 
-Detailed installation, workday calculations, settings, calendars, records and updates. This guide describes **current source and the Mac 1.5.10 build25 candidate**, which has not been publicly released. Public downloads are Mac 1.5.5 build13 and Windows 1.2.1.
+Detailed installation, workday calculations, settings, calendars, records and updates. This guide describes **current source and the Mac 1.5.10 build26 candidate**, which has not been publicly released. Public downloads are Mac 1.5.5 build13 and Windows 1.2.1.
 
 [Getting started](#three-small-steps) · [Workday calculations](#how-a-day-is-calculated) · [Calendars](#calendars-when-you-need-them) · [Records and updates](#records-and-updates) · [Development and evidence](#development-and-evidence)
 
@@ -21,7 +21,7 @@ HappyLulu is a personal convenience tool, not the company's official attendance 
 | --- | --- | --- |
 | [Public Mac download](https://github.com/young221718/happylulu-app/releases/tag/macos-v1.5.5-build13) | **1.5.5 · build13** | macOS 13+ · Universal DMG/ZIP · manual installation |
 | [Public Windows download](https://github.com/young221718/happylulu-app/releases/tag/windows-v1.2.1) | **1.2.1** | Windows 10/11 x64 · .NET 10 Desktop Runtime required |
-| [Mac candidate · main](https://github.com/young221718/happylulu-app/tree/main) | **1.5.10 · build25** | Unified settings, calendar improvements and fixed signing · not publicly released |
+| [Mac candidate · main](https://github.com/young221718/happylulu-app/tree/main) | **1.5.10 · build26** | Unified settings, calendar improvements and fixed signing · not publicly released |
 
 The guide below describes the **current source and development candidate**. Check the [Mac](../RELEASE-NOTES.md) and [Windows](../windows/RELEASE-NOTES.md) notes for features in each public version. Mac and Windows attendance records do not sync with each other.
 

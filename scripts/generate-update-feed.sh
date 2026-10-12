@@ -24,7 +24,9 @@ mkdir -p "$updates_dir"
 cp "$archive" "$updates_dir/$filename"
 cp "$(dirname "$archive")/RELEASE-NOTES.md" "$updates_dir/${filename%.zip}.md"
 download_prefix="https://github.com/young221718/happylulu-app/releases/download/macos-v$version-build$build/"
+# Keep signed notes byte-identical to the packaged notes; signatures stay enabled.
 "$tools_dir/generate_appcast" --account happylulu-updates \
+  --disable-signing-warning \
   --download-url-prefix "$download_prefix" \
   --release-notes-url-prefix "$download_prefix" \
   --maximum-deltas 0 "$updates_dir"

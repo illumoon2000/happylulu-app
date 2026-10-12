@@ -28,7 +28,7 @@
 | **Mac 1.5.5 · build13** | [DMG 다운로드](https://github.com/young221718/happylulu-app/releases/download/macos-v1.5.5-build13/HappyLulu-1.5.5-universal.dmg) · [ZIP](https://github.com/young221718/happylulu-app/releases/download/macos-v1.5.5-build13/HappyLulu-1.5.5-universal.zip) | macOS 13 이상 · Universal · [릴리즈·체크섬](https://github.com/young221718/happylulu-app/releases/tag/macos-v1.5.5-build13) |
 | **Windows 1.2.1** | [ZIP 다운로드](https://github.com/young221718/happylulu-app/releases/download/windows-v1.2.1/HappyLulu-1.2.1-windows-x64-runtime-required.zip) | Windows 10/11 x64 · .NET 10 Desktop Runtime x64 필요 · [설치 안내](windows/README.md) |
 
-**Mac 1.5.10 · build25는 개발 후보이며 공개 배포 전입니다.** 아래 캘린더·통합 설정 소개는 Mac 후보 기준입니다. 공개 자동 업데이트 피드와 실제 설치본 검증도 아직 완료하지 않았습니다. Windows에는 캘린더 동기화와 앱 자체 자동 업데이트가 없습니다.
+**Mac 1.5.10 · build26는 개발 후보이며 공개 배포 전입니다.** 아래 캘린더·통합 설정 소개는 Mac 후보 기준입니다. 공개 자동 업데이트 피드와 실제 설치본 검증도 아직 완료하지 않았습니다. Windows에는 캘린더 동기화와 앱 자체 자동 업데이트가 없습니다.
 
 <a id="세-단계로-시작하기"></a>
 
