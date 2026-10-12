@@ -28,7 +28,7 @@
 | **Mac 1.5.5 · build13** | [Download DMG](https://github.com/young221718/happylulu-app/releases/download/macos-v1.5.5-build13/HappyLulu-1.5.5-universal.dmg) · [ZIP](https://github.com/young221718/happylulu-app/releases/download/macos-v1.5.5-build13/HappyLulu-1.5.5-universal.zip) | macOS 13+ · Universal · [Release and checksums](https://github.com/young221718/happylulu-app/releases/tag/macos-v1.5.5-build13) |
 | **Windows 1.2.1** | [Download ZIP](https://github.com/young221718/happylulu-app/releases/download/windows-v1.2.1/HappyLulu-1.2.1-windows-x64-runtime-required.zip) | Windows 10/11 x64 · .NET 10 Desktop Runtime x64 required · [Installation guide](windows/README.en.md) |
 
-**Mac 1.5.10 · build25 is a development candidate, not a public release.** Calendar and unified settings descriptions refer to that Mac candidate. Public automatic update-feed deployment and actual installed-app validation remain incomplete. Windows has no calendar sync or built-in automatic updater.
+**Mac 1.5.10 · build26 is a development candidate, not a public release.** Calendar and unified settings descriptions refer to that Mac candidate. Public automatic update-feed deployment and actual installed-app validation remain incomplete. Windows has no calendar sync or built-in automatic updater.
 
 <a id="three-small-steps"></a>
 

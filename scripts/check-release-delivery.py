@@ -60,6 +60,9 @@ try Data(key.publicKey.rawRepresentation.base64EncodedString().utf8).write(to: f
         self.folder = Path(self.temporary.name) / "1.5.10-build25"
         (self.folder / "updates").mkdir(parents=True)
         self.value = plistlib.loads((delivery.ROOT / "Resources/Info.plist").read_bytes())
+        # Ephemeral signed fixture identity is independent of the current app build.
+        self.value["CFBundleShortVersionString"] = "1.5.10"
+        self.value["CFBundleVersion"] = "25"
         self.value["SUPublicEDKey"] = (self.fixture / "public-key.txt").read_text()
         for name in delivery.names(self.value):
             path = self.folder / name
