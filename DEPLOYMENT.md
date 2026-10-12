@@ -13,6 +13,15 @@ python3 scripts/release_delivery.py check dist/releases/1.5.10-build25
 
 준비 단계는 고정 코드 서명 검사, arm64/x86_64 Universal 빌드, ZIP·DMG 생성, 로컬 Sparkle feed 서명, 번들·ZIP·DMG 일치 검사와 Ed25519 서명 검사를 수행합니다. 키체인 승인창은 운영자가 직접 승인합니다. ad-hoc 서명은 배포 준비 검사에서 거부합니다. Developer ID·공증과 외부 Mac 설치 시험은 별도입니다.
 
+실제 feed 생성 회귀검사는 패키지 ZIP과 기존 로컬 Sparkle 키가 있는 Mac에서 실행합니다. 임시 폴더에 feed를 생성해 노트 원문 보존과 서명 유효성을 확인하고, 두 노트 사본을 함께 변조해도 서명 검사가 거부하는지 확인합니다. 개인 키가 없는 공개 CI에서는 기존 오프라인 배포 검사만 실행합니다.
+
+```sh
+python3 scripts/check-update-feed-generation.py \
+  dist/releases/1.5.10-build25/HappyLulu-1.5.10-universal.zip
+```
+
+`generate_appcast --disable-signing-warning`은 노트에 붙이는 안내 주석만 억제합니다. archive·노트·feed 서명은 유지하며, 서명 후 노트를 원문으로 되돌리지 않습니다.
+
 `dist/releases/<version>-build<build>/`에 앱, ZIP, DMG, 노트, 라이선스, `updates/appcast.xml`, 서명된 노트, `build-source.json`, `release.json`, `SHA256SUMS.txt`를 보관합니다. 빌드 시작 때 기록한 소스 commit과 clean 상태가 현재 checkout과 일치해야 배포 준비를 통과합니다. manifest는 버전, build, feed, 공개키와 코드 서명 requirement도 연결합니다. 체크섬은 업로드할 모든 파일을 열거합니다. 경로 이탈·symlink·중복/누락 체크섬·변조·다른 URL/버전의 feed는 거부합니다. 서명 후 산출물을 수정하거나 같은 build를 재사용하지 않습니다. 기존 준비 폴더가 있으면 자동 덮어쓰지 않습니다.
 
 ## 검증된 후보를 draft로 올리기

@@ -2,7 +2,7 @@
 
 HappyLulu는 **공통 `main` 하나**를 개발 기준으로 사용합니다. Mac과 Windows에 같은 기능과 근무 계산 규칙을 제공하는 것을 목표로 하며, 현재 차이는 아래에서 추적합니다. `dev`, `main-mac`, `main-window`를 상시 개발 브랜치로 두지 않습니다.
 
-확인일: 2026-10-12. 기능 현황은 `main`의 [f59fccc](https://github.com/young221718/happylulu-app/tree/f59fcccd2dcf364738a730080eb197d037d9f949) 기준입니다. 공개 버전은 [README](../README.md#다운로드)에서 별도로 확인합니다. Mac 1.5.10 build25는 개발 후보이며, 이 문서의 구현 상태가 공개 배포 완료를 뜻하지는 않습니다.
+확인일: 2026-10-12. 기능 현황은 `main`의 [d6a59f2](https://github.com/young221718/happylulu-app/tree/d6a59f256109d9788f1c92139a60a84e6ad2fadf) 기준입니다. 이번 [양 플랫폼 자동 검사와 남은 검증](PLATFORM-VALIDATION.md)을 별도로 기록했습니다. 공개 버전은 [README](../README.md#다운로드)에서 확인합니다. Mac 1.5.10 build25는 개발 후보이며, 이 문서의 구현 상태가 공개 배포 완료를 뜻하지는 않습니다.
 
 ## 상태 기준
 
