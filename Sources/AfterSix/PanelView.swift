@@ -38,6 +38,9 @@ private enum ManualModeChoice: String, CaseIterable {
 struct PanelView: View {
     @ObservedObject var model: AppModel
     @ObservedObject private var language = AppLanguage.shared
+    @ObservedObject var calendarSync: CalendarSyncModel
+    @LocalState private var historyVisible = false
+    let onOpenHistory: () -> Void
     let onOpenSettings: () -> Void
     @LocalState private var editing = false
     @LocalState private var editTime = Date()
@@ -60,6 +63,12 @@ struct PanelView: View {
                         Label(visibleMessage(error), systemImage: "exclamationmark.triangle.fill")
                             .font(.caption).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
                     }
+                    DisclosureGroup(L("출근 캘린더", "Arrival calendar"), isExpanded: $historyVisible) {
+                        AttendanceCalendarView(model: model, compact: true)
+                    }
+                    CalendarSyncStatusView(model: calendarSync)
+                    Button(L("전체 출근 캘린더 열기", "Open arrival calendar"), action: onOpenHistory)
+                        .buttonStyle(.borderless)
                     lastUnlockStatus
                 }
                 .padding(20)

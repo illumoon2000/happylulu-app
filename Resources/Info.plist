@@ -1,31 +1,63 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict>
-    <key>CFBundleExecutable</key><string>HappyLulu</string>
-    <key>CFBundleIdentifier</key><string>local.chanyoung.AfterSix</string>
-    <key>CFBundleName</key><string>HappyLulu</string>
-    <key>CFBundleIconFile</key><string>AppIcon</string>
-    <key>CFBundleDisplayName</key><string>HappyLulu</string>
-    <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>1.5.10</string>
-    <key>CFBundleVersion</key><string>26</string>
-    <key>LSMinimumSystemVersion</key><string>13.0</string>
-    <key>LSUIElement</key><true/>
-    <key>NSHighResolutionCapable</key><true/>
-    <key>NSCalendarsUsageDescription</key><string>허용한 일정 제목에서 오전·오후 반차를 인식하고, 별도로 선택한 다우오피스·Google 캘린더를 동기화합니다.</string>
-    <key>NSCalendarsFullAccessUsageDescription</key><string>허용한 일정 제목에서 오전·오후 반차를 인식하고, 별도로 선택한 다우오피스·Google 캘린더를 동기화합니다.</string>
-    <key>CFBundleDevelopmentRegion</key><string>ko</string>
-    <key>CFBundleLocalizations</key><array><string>ko</string><string>en</string></array>
-    <key>SUFeedURL</key><string>https://github.com/young221718/happylulu-app/releases/download/macos-update-feed/appcast.xml</string>
-    <key>SUPublicEDKey</key><string>iUYqznysscBintQYTCAIeax/QbptNaI9lLcN4I6iUqM=</string>
-    <key>SUEnableAutomaticChecks</key><true/>
-    <key>SUAutomaticallyUpdate</key><true/>
-    <key>SUAllowsAutomaticUpdates</key><true/>
-    <key>HappyLuluUpdateServiceEnabled</key><true/>
-    <key>SUScheduledCheckInterval</key><integer>3600</integer>
-    <key>SUScheduledImpatientCheckInterval</key><integer>86400</integer>
-    <key>SUEnableSystemProfiling</key><false/>
-    <key>SUVerifyUpdateBeforeExtraction</key><true/>
-    <key>SURequireSignedFeed</key><true/>
-    <key>SUSignedFeedFailureExpirationInterval</key><integer>0</integer>
-</dict></plist>
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>ko</string>
+	<key>CFBundleDisplayName</key>
+	<string>HappyLulu</string>
+	<key>CFBundleExecutable</key>
+	<string>HappyLulu</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIdentifier</key>
+	<string>local.chanyoung.AfterSix</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>ko</string>
+		<string>en</string>
+	</array>
+	<key>CFBundleName</key>
+	<string>HappyLulu</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.5.11</string>
+	<key>CFBundleVersion</key>
+	<string>27</string>
+	<key>HappyLuluUpdateServiceEnabled</key>
+	<true/>
+	<key>LSMinimumSystemVersion</key>
+	<string>13.0</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>허용한 일정 제목에서 오전·오후 반차를 인식하고, 별도로 선택한 다우오피스·Google 캘린더를 동기화합니다.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>허용한 일정 제목에서 오전·오후 반차를 인식하고, 별도로 선택한 다우오피스·Google 캘린더를 동기화합니다.</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>SUAllowsAutomaticUpdates</key>
+	<true/>
+	<key>SUAutomaticallyUpdate</key>
+	<true/>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUEnableSystemProfiling</key>
+	<false/>
+	<key>SUFeedURL</key>
+	<string>https://github.com/young221718/happylulu-app/releases/download/macos-update-feed/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>iUYqznysscBintQYTCAIeax/QbptNaI9lLcN4I6iUqM=</string>
+	<key>SURequireSignedFeed</key>
+	<true/>
+	<key>SUScheduledCheckInterval</key>
+	<integer>3600</integer>
+	<key>SUScheduledImpatientCheckInterval</key>
+	<integer>86400</integer>
+	<key>SUSignedFeedFailureExpirationInterval</key>
+	<integer>0</integer>
+	<key>SUVerifyUpdateBeforeExtraction</key>
+	<true/>
+</dict>
+</plist>

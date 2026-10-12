@@ -402,3 +402,13 @@ func testSystemMarkerLostBeforeUIDUpgradeNeverCopiesBack() async throws {
                 "unverified copy must not seed a second mapping")
     }
 }
+func testDisplayReadSelectionAndRangeBoundaries() async throws {
+    let access = SystemCalendarAccess()
+    let start = Date(timeIntervalSince1970: 1_791_806_400)
+    let events = try await access.displayEvents(calendarIDs: [], start: start, end: start.addingTimeInterval(3600))
+    require(events.isEmpty, "No selected calendars must not query all account events")
+    do {
+        _ = try await access.displayEvents(calendarIDs: ["unused-fixture-calendar"], start: start, end: start)
+        require(false, "Invalid range must fail before EventKit queries")
+    } catch SystemCalendarError.invalidDate {}
+}
