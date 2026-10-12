@@ -64,6 +64,7 @@ HappyLulu is a personal convenience tool, not the company's official attendance,
 | --- | --- |
 | [User guide](docs/USER-GUIDE.en.md) | Installation, settings, workday calculations, records and known limits |
 | [Windows guide](windows/README.en.md) | Runtime requirements, tray, startup and builds |
+| [Mac and Windows feature status (Korean)](docs/PLATFORM-STATUS.md) | Not planned, in development, completed, and the shared main workflow |
 | [Calendar guide (Korean)](CALENDAR.md) | Mac candidate support, connections, previews and recovery |
 | [Mac release notes](RELEASE-NOTES.md) · [Windows release notes](windows/RELEASE-NOTES.md) | Version features and public status |
 | [Updates](UPDATES.md) · [Deployment](DEPLOYMENT.md) · [Validation](VALIDATION.md) | Signing, release preparation and remaining device checks (Korean) |
@@ -74,6 +75,8 @@ HappyLulu is a personal convenience tool, not the company's official attendance,
 ## Contributing
 
 Start with an [issue](https://github.com/young221718/happylulu-app/issues). Changes follow issue → task branch → checks and independent review → PR. Read the [build and validation guide](docs/USER-GUIDE.en.md#development-and-evidence), and keep personal records, keys, credentials and generated apps out of Git.
+
+Use the shared **`main`** as the development base and PR target. New shared features should have matching implementations and validation on Mac and Windows. Track current differences and remaining work in the [feature status document (Korean)](docs/PLATFORM-STATUS.md).
 
 ## License
 

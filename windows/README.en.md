@@ -10,6 +10,8 @@ Records stay in `%LOCALAPPDATA%\HappyLulu\state.json`. If the file cannot be rea
 
 Calendar sync and in-app automatic updates are not included in the Windows 1.2.1 candidate.
 
+Windows and Mac use the same `main` development base. See [Mac and Windows feature status (Korean)](../docs/PLATFORM-STATUS.md) for differences and development status.
+
 ## Build and check
 
 Run with the .NET 10 SDK on Windows:
