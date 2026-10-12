@@ -25,10 +25,10 @@
 
 | Platform | Direct download | Requirements · details |
 | --- | --- | --- |
-| **Mac 1.5.11 · build27** | [Download DMG](https://github.com/young221718/happylulu-app/releases/download/macos-v1.5.11-build27/HappyLulu-1.5.11-universal.dmg) · [ZIP](https://github.com/young221718/happylulu-app/releases/download/macos-v1.5.11-build27/HappyLulu-1.5.11-universal.zip) | macOS 13+ · Universal · [Release and checksums](https://github.com/young221718/happylulu-app/releases/tag/macos-v1.5.11-build27) |
-| **Windows 1.2.1** | [Download ZIP](https://github.com/young221718/happylulu-app/releases/download/windows-v1.2.1/HappyLulu-1.2.1-windows-x64-runtime-required.zip) | Windows 10/11 x64 · .NET 10 Desktop Runtime x64 required · [Installation guide](windows/README.en.md) |
+| **Mac 1.5.12 · build28** | [Download DMG](https://github.com/young221718/happylulu-app/releases/download/macos-v1.5.12-build28/HappyLulu-1.5.12-universal.dmg) · [ZIP](https://github.com/young221718/happylulu-app/releases/download/macos-v1.5.12-build28/HappyLulu-1.5.12-universal.zip) | macOS 13+ · Universal · [Release and checksums](https://github.com/young221718/happylulu-app/releases/tag/macos-v1.5.12-build28) |
+| **Windows 1.5.12** | [Download ZIP](https://github.com/young221718/happylulu-app/releases/download/windows-v1.5.12/HappyLulu-1.5.12-windows-x64-runtime-required.zip) | Windows 10/11 x64 · .NET 10 Desktop Runtime x64 required · [Installation guide](windows/README.en.md) |
 
-**Mac 1.5.11 · build27 is available.** Local replacement and relaunch preserved attendance, calendar connections and full calendar permission. Public assets and the signed feed match the validated package. Server round-trip sync remains a separate validation task. Windows has no calendar sync or built-in automatic updater.
+**Mac 1.5.12 · build28 / Windows 1.5.12** detect automatic arrivals from 06:00 and record observations before 08:00 at 08:00. Manual entry and morning-half-day rules stay unchanged. Actual user sessions, this version’s installation and permission preservation need separate validation. Windows has no calendar sync or built-in updater.
 
 <a id="three-small-steps"></a>
 

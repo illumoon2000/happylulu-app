@@ -46,6 +46,17 @@ try
         bool expectedAllowed = expected.GetProperty("arrivalAllowed").GetBoolean();
         Require(minutes == expectedMinutes, $"{id}: departure minutes expected {expectedMinutes}, got {minutes}");
         Require(allowed == expectedAllowed, $"{id}: arrival eligibility expected {expectedAllowed}, got {allowed}");
+        if (expected.TryGetProperty("automaticRecordedAt", out var automatic))
+        {
+            var state = new AttendanceState();
+            string recordedAt = automatic.GetString()!;
+            Require(Attendance.RecordUnlock(state, at) == (recordedAt.Length > 0), $"{id}: automatic eligibility differs");
+            if (recordedAt.Length > 0)
+            {
+                var normalized = DateTimeOffset.Parse(recordedAt, CultureInfo.InvariantCulture);
+                Require(Attendance.Today(state, at)?.Time == normalized, $"{id}: automatic recorded time differs");
+            }
+        }
     }
     Console.WriteLine($"PASS C# shared attendance: {ids.Count} cases");
     return 0;

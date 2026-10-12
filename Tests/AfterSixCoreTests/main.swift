@@ -26,6 +26,8 @@ func expectThrows<T>(_ value: @autoclosure () throws -> T, file: StaticString = 
     failure("Expected an error", file: file, line: line)
 }
 
+try checkEarlyArrival()
+
 let tests = AttendanceTests()
 let checks: [(String, () throws -> Void)] = [
     ("Month grid, leap year, year rollover and exclusive event ends across DST", checkCalendarMonth),

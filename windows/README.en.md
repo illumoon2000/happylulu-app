@@ -1,16 +1,18 @@
-# HappyLulu for Windows 1.2.1 candidate
+# HappyLulu for Windows 1.5.12
 
-The publicly available version is **1.2.1**, available from [GitHub Releases](https://github.com/young221718/happylulu-app/releases/tag/windows-v1.2.1). It rounds hours up to one decimal place and retains light cards, extra elapsed time, and meal time thresholds after scheduled departure. It does not verify work or approve payment.
+The publicly available version is **1.5.12**, available from [GitHub Releases](https://github.com/young221718/happylulu-app/releases/tag/windows-v1.5.12). It rounds hours up to one decimal place and retains light cards, extra elapsed time, and meal time thresholds after scheduled departure. It does not verify work or approve payment.
 
 HappyLulu runs in the Windows notification area. Left-click its icon for today's arrival, estimated departure, manual entry, and day-off action. Right-click to open the separate Settings window or exit. In Settings, choose System, Korean, or English; the preference is saved locally and the open windows and tray text refresh.
 
-While the app is running, the first actual Windows `SessionUnlock` event in the allowed arrival window is recorded. Full days use 08:00–10:00; a morning off uses 13:00–15:00. An afternoon off can be selected with manual entry. The app does not reconstruct earlier unlocks or treat startup, wake, or a session change alone as an arrival. Day off clears today's arrival and suppresses later unlocks until a manual entry resumes recording.
+While the app is running, the first actual Windows `SessionUnlock` event in the allowed arrival window is recorded. Full-day automatic detection uses 06:00–10:00 (observations before 08:00 are recorded at 08:00); a morning off uses 13:00–15:00. An afternoon off can be selected with manual entry. The app does not reconstruct earlier unlocks or treat startup, wake, or a session change alone as an arrival. Day off clears today's arrival and suppresses later unlocks until a manual entry resumes recording.
 
 Records stay in `%LOCALAPPDATA%\HappyLulu\state.json`. If the file cannot be read, the app preserves it and disables saving. Settings includes work and break duration, recent arrivals, and an optional Start with Windows switch. The switch changes the current user's Run registry entry only when selected. If you move the portable executable, set startup again.
 
-Calendar sync and in-app automatic updates are not included in the Windows 1.2.1 candidate.
+Calendar sync and in-app automatic updates are not included in the Windows 1.5.12.
 
 Windows and Mac use the same `main` development base. See [Mac and Windows feature status (Korean)](../docs/PLATFORM-STATUS.md) for differences and development status.
+
+Automatic detection starts at **06:00 local time**. Regular or afternoon-off observations from 06:00 through 07:59:59 are recorded at **08:00 on the same day** (06:30 observed → 08:00 recorded → default departure 17:00). Earlier events are ignored; morning off retains 13:00–15:00. The table below describes manual input and recorded times; manual entries are not normalized.
 
 ## Build and check
 
@@ -22,7 +24,7 @@ dotnet publish windows/HappyLulu.Tray/HappyLulu.Tray.csproj -c Release -r win-x6
 dotnet publish windows/HappyLulu.Tray/HappyLulu.Tray.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:PublishTrimmed=false -p:DebugType=None -p:DebugSymbols=false -o dist/windows/runtime-required
 ```
 
-`HappyLulu-1.2.1-windows-x64.zip` includes the runtime. The smaller `HappyLulu-1.2.1-windows-x64-runtime-required.zip` requires the **.NET 10 Desktop Runtime x64** on the target PC. Extract either ZIP and run `HappyLulu.exe`. CI builds both ZIPs and checks that the runtime-required ZIP stays below 25 MiB.
+`HappyLulu-1.5.12-windows-x64.zip` includes the runtime. The smaller `HappyLulu-1.5.12-windows-x64-runtime-required.zip` requires the **.NET 10 Desktop Runtime x64** on the target PC. Extract either ZIP and run `HappyLulu.exe`. CI builds both ZIPs and checks that the runtime-required ZIP stays below 25 MiB.
 
 Core checks and a successful build do not prove real session unlock detection, tray display, startup after sign-in, or execution with an installed runtime. Verify these on Windows separately.
 
