@@ -283,7 +283,7 @@ internal sealed class TodayForm : Form
         {
             DateTimeOffset mealAt = Attendance.MealThresholdAt(arrival!, controller.State.Settings);
             string mealClock = mealAt.ToString("HH:mm", CultureInfo.InvariantCulture);
-            overtimeTitle.Text = status.ElapsedMinutes >= 30
+            overtimeTitle.Text = status.ElapsedMinutes >= Attendance.ExtraTimeDisplayDelayMinutes
                 ? Words.T($"추가 {status.ElapsedMinutes}분 중", $"Extra {status.ElapsedMinutes} min in progress")
                 : Words.T("예정 퇴근 시각 지남", "Planned departure passed");
             mealStatus.Text = status.MealThresholdReached

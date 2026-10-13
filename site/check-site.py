@@ -28,7 +28,9 @@ for document in DIST.rglob("*.html"):
     page = Page()
     page.feed(document.read_text())
     pages[document.resolve()] = page
-assert len(pages) == 9, "Preserve existing public routes"
+assert len(pages) == 11, "Preserve existing routes and the Korean/English overtime guides"
+for route in ("features/overtime/index.html", "en/features/overtime/index.html"):
+    assert (DIST / route).resolve() in pages, route
 links = []
 for document, page in pages.items():
     assert REPO + "/blob/main/LICENSE" in page.links, document
@@ -58,4 +60,4 @@ for path in DIST.rglob("*"):
     assert not path.is_symlink(), path
     assert path.suffix not in {".zip", ".dmg", ".exe", ".p12", ".key"}, path
 assert json.loads((ROOT / ".openai/hosting.json").read_text())["project_id"] == "appgprj_6abcb381750c819189cb642ebfa52b3e"
-print("PASS: 9 routes, local assets/anchors, GitHub release links, license notices; no app binaries.")
+print("PASS: 11 routes, local assets/anchors, GitHub release links, license notices; no app binaries.")
