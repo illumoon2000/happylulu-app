@@ -59,6 +59,9 @@ public readonly record struct OvertimeStatus(int ElapsedMinutes, int MinutesToMe
 
 public static class Attendance
 {
+    public const int ExtraTimeDisplayDelayMinutes = 30;
+    public const int MealReferenceThresholdMinutes = 120;
+
     public static string DayKey(DateTimeOffset date) =>
         date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
@@ -127,7 +130,7 @@ public static class Attendance
         Math.Max(0, (int)Math.Ceiling((departure - now).TotalMinutes));
 
     public static DateTimeOffset MealThresholdAt(Arrival arrival, WorkSettings settings) =>
-        Departure(arrival, settings).AddMinutes(120);
+        Departure(arrival, settings).AddMinutes(MealReferenceThresholdMinutes);
 
     // This is a time guide from planned departure, not evidence of actual work or reimbursement approval.
     public static OvertimeStatus? Overtime(AttendanceState state, DateTimeOffset now)

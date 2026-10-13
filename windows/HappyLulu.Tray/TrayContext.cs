@@ -91,7 +91,7 @@ internal sealed class TrayContext : ApplicationContext
         OvertimeStatus? overtime = Attendance.Overtime(controller.State, now);
         DateTimeOffset? departure = arrival is null ? null : Attendance.Departure(arrival, controller.State.Settings);
         timer.Interval = RemainingTimeDisplay.RefreshInterval(controller.State.RemainingTimeUnit, departure > now);
-        string title = overtime is { ElapsedMinutes: >= 30 } status
+        string title = overtime is { ElapsedMinutes: >= Attendance.ExtraTimeDisplayDelayMinutes } status
             ? Words.T($"추가 {status.ElapsedMinutes}분 중", $"Extra {status.ElapsedMinutes} min in progress")
             : arrival is null
                 ? (controller.State.SuppressedDays.Contains(Attendance.DayKey(now))

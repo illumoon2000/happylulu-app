@@ -122,6 +122,9 @@ public enum AttendanceError: LocalizedError {
 }
 
 public enum Attendance {
+    public static let extraTimeDisplayDelayMinutes = 30
+    public static let mealReferenceThresholdMinutes = 120
+
     public static func clockLabel(_ date: Date, timeZone: TimeZone) -> String {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = timeZone
@@ -256,8 +259,8 @@ public enum Attendance {
         guard elapsed >= 0 else { return nil }
         let elapsedMinutes = Int(floor(elapsed / 60))
         return PostDepartureStatus(
-            extraMinutes: elapsedMinutes >= 30 ? elapsedMinutes : nil,
-            mealMinutesRemaining: max(0, Int(ceil((120 * 60 - elapsed) / 60)))
+            extraMinutes: elapsedMinutes >= Self.extraTimeDisplayDelayMinutes ? elapsedMinutes : nil,
+            mealMinutesRemaining: max(0, Int(ceil((TimeInterval(Self.mealReferenceThresholdMinutes * 60) - elapsed) / 60)))
         )
     }
 }

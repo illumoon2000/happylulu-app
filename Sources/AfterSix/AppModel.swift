@@ -74,7 +74,7 @@ final class AppModel: ObservableObject {
     }
     func mealStatusLabel(_ status: PostDepartureStatus) -> String {
         guard let departure else { return L("식대 기준", "Meal threshold") }
-        let thresholdTime = timeLabel(departure.addingTimeInterval(120 * 60))
+        let thresholdTime = timeLabel(departure.addingTimeInterval(TimeInterval(Attendance.mealReferenceThresholdMinutes * 60)))
         return status.mealThresholdReached
             ? L("식대 기준 \(thresholdTime) 도달", "Meal threshold \(thresholdTime) reached")
             : L("식대 기준 \(thresholdTime) · \(status.mealMinutesRemaining)분 남음",
