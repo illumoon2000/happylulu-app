@@ -25,10 +25,10 @@
 
 | 운영체제 | 바로 받기 | 실행 조건 · 안내 |
 | --- | --- | --- |
-| **Mac 1.5.12 · build28** | [DMG 다운로드](https://github.com/young221718/happylulu-app/releases/download/macos-v1.5.12-build28/HappyLulu-1.5.12-universal.dmg) · [ZIP](https://github.com/young221718/happylulu-app/releases/download/macos-v1.5.12-build28/HappyLulu-1.5.12-universal.zip) | macOS 13 이상 · Universal · [릴리즈·체크섬](https://github.com/young221718/happylulu-app/releases/tag/macos-v1.5.12-build28) |
-| **Windows 1.5.12** | [ZIP 다운로드](https://github.com/young221718/happylulu-app/releases/download/windows-v1.5.12/HappyLulu-1.5.12-windows-x64-runtime-required.zip) | Windows 10/11 x64 · .NET 10 Desktop Runtime x64 필요 · [설치 안내](windows/README.md) |
+| **Mac 1.5.13 · build29** | [DMG 다운로드](https://github.com/young221718/happylulu-app/releases/download/macos-v1.5.13-build29/HappyLulu-1.5.13-universal.dmg) · [ZIP](https://github.com/young221718/happylulu-app/releases/download/macos-v1.5.13-build29/HappyLulu-1.5.13-universal.zip) | macOS 13 이상 · Universal · [릴리즈·체크섬](https://github.com/young221718/happylulu-app/releases/tag/macos-v1.5.13-build29) |
+| **Windows 1.5.13** | [ZIP 다운로드](https://github.com/young221718/happylulu-app/releases/download/windows-v1.5.13/HappyLulu-1.5.13-windows-x64-runtime-required.zip) | Windows 10/11 x64 · .NET 10 Desktop Runtime x64 필요 · [설치 안내](windows/README.md) |
 
-**Mac 1.5.12 · build28 / Windows 1.5.12**는 06시부터 자동 출근을 감지하고 08시 이전 감지를 08시로 기록합니다. 수동 입력·오전 반차 규칙은 유지합니다. 실제 사용자 세션·이번 버전의 설치·권한 유지 검증은 별도 범위입니다. Windows에는 캘린더 동기화와 앱 자체 자동 업데이트가 없습니다.
+**Mac 1.5.13 · build29 / Windows 1.5.13**은 예정 퇴근 이후 30분·2시간 기준을 [기능 명세](SPEC.md)와 [사용 예시](https://happylulu.cy-choi-lulu.chatgpt.site/features/overtime/)로 명확히 설명합니다. 06시 자동 감지·08시 보정과 기존 근무 계산은 유지합니다. 실제 사용자 세션·이번 버전의 설치·권한 유지 검증은 별도 범위입니다. Windows에는 캘린더 동기화와 앱 자체 자동 업데이트가 없습니다.
 
 <a id="세-단계로-시작하기"></a>
 
