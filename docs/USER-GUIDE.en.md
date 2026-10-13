@@ -2,7 +2,7 @@
 
 [Overview](../README.en.md) · [Downloads](../README.en.md#downloads) · [한국어](USER-GUIDE.md)
 
-Detailed installation, workday calculations, settings, calendars, records and updates. This guide describes **the public Mac 1.5.12 build28 release**. Public downloads are Mac 1.5.12 build28 and Windows 1.5.12.
+Detailed installation, workday calculations, settings, calendars, records and updates. This guide describes **the public Mac 1.5.13 build29 release**. Public downloads are Mac 1.5.13 build29 and Windows 1.5.13.
 
 [Getting started](#three-small-steps) · [Workday calculations](#how-a-day-is-calculated) · [Calendars](#calendars-when-you-need-them) · [Records and updates](#records-and-updates) · [Development and evidence](#development-and-evidence)
 
@@ -19,8 +19,8 @@ HappyLulu is a personal convenience tool, not the company's official attendance 
 
 | Edition | Version | Status |
 | --- | --- | --- |
-| [Public Mac download](https://github.com/young221718/happylulu-app/releases/tag/macos-v1.5.12-build28) | **1.5.12 · build28** | macOS 13+ · Universal DMG/ZIP · manual installation |
-| [Public Windows download](https://github.com/young221718/happylulu-app/releases/tag/windows-v1.5.12) | **1.5.12** | Windows 10/11 x64 · .NET 10 Desktop Runtime required |
+| [Public Mac download](https://github.com/young221718/happylulu-app/releases/tag/macos-v1.5.13-build29) | **1.5.13 · build29** | macOS 13+ · Universal DMG/ZIP · manual installation |
+| [Public Windows download](https://github.com/young221718/happylulu-app/releases/tag/windows-v1.5.13) | **1.5.13** | Windows 10/11 x64 · .NET 10 Desktop Runtime required |
 
 The guide below describes the **current public version**. Check the [Mac](../RELEASE-NOTES.md) and [Windows](../windows/RELEASE-NOTES.md) notes for features in each public version. Mac and Windows attendance records do not sync with each other.
 
@@ -83,7 +83,7 @@ Optional half-day recognition reads accessible calendar titles. Shared events ma
 
 Mac attendance stays in `~/Library/Application Support/AfterSix/state.json`. The app identifier and existing storage path are retained. Never delete records to update the app. Calendar connection state is local; macOS manages credentials. No attendance telemetry, keyboard or screen collection is added.
 
-Automatic checking, downloading, idle installation and fixed self-signing are available. The previous 1.5.11 build27 local replacement preserved records, connections and calendar permission, and its public files and signed feed matched the validated package. Actual user-app replacement and permission preservation have not been tested for 1.5.12 build28. This does not verify automatic migration from the old Site feed or installation on every Mac. Older versions with updates disabled need one manual replacement with an enabled version. See [updates](../UPDATES.md) and [issue #3](https://github.com/young221718/happylulu-app/issues/3).
+Automatic checking, downloading, idle installation and fixed self-signing are available. The previous 1.5.11 build27 local replacement preserved records, connections and calendar permission, and its public files and signed feed matched the validated package. Actual user-app replacement and permission preservation have not been tested for 1.5.13 build29. This does not verify automatic migration from the old Site feed or installation on every Mac. Older versions with updates disabled need one manual replacement with an enabled version. See [updates](../UPDATES.md) and [issue #3](https://github.com/young221718/happylulu-app/issues/3).
 
 Apple Developer ID/notarization and Windows publisher signing are incomplete. Universal builds include Intel code, but Intel physical testing is pending. Follow managed-device policy. Older versions may preserve but stop writing records containing an unsupported login source; do not remove the records to downgrade.
 

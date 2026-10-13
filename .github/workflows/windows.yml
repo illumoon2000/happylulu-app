@@ -53,20 +53,20 @@ jobs:
             if (-not (Test-Path $source)) { throw "Missing bundled .NET notice: $source" }
             Copy-Item $source $noticeDir
           }
-          Compress-Archive -Path dist/windows/self-contained/* -DestinationPath dist/windows/HappyLulu-1.5.12-windows-x64.zip
-          Compress-Archive -Path dist/windows/runtime-required/* -DestinationPath dist/windows/HappyLulu-1.5.12-windows-x64-runtime-required.zip
+          Compress-Archive -Path dist/windows/self-contained/* -DestinationPath dist/windows/HappyLulu-1.5.13-windows-x64.zip
+          Compress-Archive -Path dist/windows/runtime-required/* -DestinationPath dist/windows/HappyLulu-1.5.13-windows-x64-runtime-required.zip
           Get-FileHash dist/windows/*.zip -Algorithm SHA256 | ForEach-Object {
             '{0}  {1}' -f $_.Hash.ToLowerInvariant(), (Split-Path $_.Path -Leaf)
           } | Set-Content -Encoding ascii dist/windows/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: HappyLulu-1.5.12-windows-x64
-          path: dist/windows/HappyLulu-1.5.12-windows-x64.zip
+          name: HappyLulu-1.5.13-windows-x64
+          path: dist/windows/HappyLulu-1.5.13-windows-x64.zip
       - uses: actions/upload-artifact@v4
         with:
-          name: HappyLulu-1.5.12-windows-x64-runtime-required
-          path: dist/windows/HappyLulu-1.5.12-windows-x64-runtime-required.zip
+          name: HappyLulu-1.5.13-windows-x64-runtime-required
+          path: dist/windows/HappyLulu-1.5.13-windows-x64-runtime-required.zip
       - uses: actions/upload-artifact@v4
         with:
-          name: HappyLulu-1.5.12-windows-checksums
+          name: HappyLulu-1.5.13-windows-checksums
           path: dist/windows/SHA256SUMS.txt

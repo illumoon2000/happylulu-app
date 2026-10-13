@@ -50,9 +50,9 @@ for document, page in pages.items():
         if url.fragment and target in pages:
             assert url.fragment in pages[target].ids, (document, link)
 for tag, asset in [
-    ("macos-v1.5.12-build28", "HappyLulu-1.5.12-universal.dmg"),
-    ("macos-v1.5.12-build28", "HappyLulu-1.5.12-universal.zip"),
-    ("windows-v1.5.12", "HappyLulu-1.5.12-windows-x64-runtime-required.zip"),
+    ("macos-v1.5.13-build29", "HappyLulu-1.5.13-universal.dmg"),
+    ("macos-v1.5.13-build29", "HappyLulu-1.5.13-universal.zip"),
+    ("windows-v1.5.13", "HappyLulu-1.5.13-windows-x64-runtime-required.zip"),
 ]:
     assert REPO + f"/releases/download/{tag}/{asset}" in links, asset
 assert not any("/downloads/" in urlsplit(link).path for link in links), "Use GitHub release assets"
