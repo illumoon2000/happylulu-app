@@ -37,6 +37,7 @@ struct ModelAPIStep: Sendable {
     var status = 200
     var contentType = "application/json"
     var held = false
+    var failure: PluginFailure?
 }
 
 /// One fake transport represents one cookie session. Held responses deliberately finish after
@@ -68,6 +69,7 @@ actor CaptchaModelTransport: DaouOfficeTransport {
         if step.held {
             await withCheckedContinuation { heldResponse = $0 }
         }
+        if let failure = step.failure { throw failure }
         return (Data(step.json.utf8), HTTPURLResponse(url: request.url!, statusCode: step.status,
             httpVersion: "HTTP/1.1", headerFields: ["Content-Type": step.contentType])!)
     }
@@ -247,6 +249,48 @@ private func checkCaptchaModelReloadAndFailure(folder: URL) async throws {
     require(afterImageReload.count == failed.count + 1 && afterImageReload.filter { $0.httpMethod == "POST" }.count == 2,
         "Reloading a rejected challenge retried a password login")
     print("PASS CAPTCHA model: image reload, rejected answer and no automatic credential retry")
+}
+
+@MainActor
+private func checkCaptchaPostLoginReadRetry(folder: URL) async throws {
+    for failure in [PluginFailure.network, .timeout] {
+        let failedRead = ModelAPIStep(path: "/api/leave/normal/my/annual/summary", json: "", failure: failure)
+        let creations = ClientCreations()
+        let transport = CaptchaModelTransport([bootstrapStep, companyStep, captchaLoginStep, captchaStep,
+            successfulLoginStep, failedRead] + successfulReadSteps())
+        let model = captchaModel(folder: folder, transport: transport, creations: creations)
+        try await waitUntil("Read-retry fixture has no CAPTCHA") { model.captchaChallenge != nil && !model.isRunning }
+        model.captchaAnswer = "HUMAN-FIXTURE"; model.submitCaptcha()
+        try await waitUntil("Post-CAPTCHA read failure did not finish") { !model.isRunning }
+        require(model.failure == failure && !model.captchaRequired && model.captchaChallenge == nil && model.snapshot == nil,
+            "Authenticated read failure retained CAPTCHA or published incomplete data")
+        require(model.nextRunAt != nil && model.nextRunAt! > Date() && model.nextRunAt!.timeIntervalSinceNow <= 301,
+            "Network/timeout after CAPTCHA success did not schedule bounded data retry")
+        require(!model.captchaLoginRejected && model.canRefresh && model.captchaAnswer.isEmpty,
+            "Data failure was reported as a rejected CAPTCHA login")
+        model.refresh()
+        try await waitUntil("Authenticated data retry did not recover") { model.snapshot != nil && !model.isRunning }
+        let requests = await transport.captured(), remaining = await transport.remaining()
+        require(remaining == 0 && creations.value == 1 && requests.filter { $0.httpMethod == "POST" }.count == 2,
+            "Data retry resent authentication or replaced the successful CAPTCHA session")
+        require(model.failure == nil && model.nextRunAt != nil && model.api.snapshot(for: "daouoffice") == model.snapshot,
+            "Data retry did not restore polling and publish a complete snapshot")
+        model.stop()
+    }
+    for failure in [PluginFailure.network, .timeout] {
+        let failedLogin = ModelAPIStep(path: successfulLoginStep.path, method: "POST", json: "", failure: failure)
+        let transport = CaptchaModelTransport([bootstrapStep, companyStep, captchaLoginStep, captchaStep, failedLogin])
+        let model = captchaModel(folder: folder, transport: transport)
+        try await waitUntil("Submit-failure fixture has no CAPTCHA") { model.captchaChallenge != nil && !model.isRunning }
+        model.captchaAnswer = "HUMAN-FIXTURE"; model.submitCaptcha()
+        try await waitUntil("CAPTCHA submit failure did not finish") { !model.isRunning }
+        require(model.failure == failure && model.captchaRequired && model.nextRunAt == nil && model.snapshot == nil,
+            "Failed CAPTCHA authentication scheduled automatic credential retries")
+        let requests = await transport.captured()
+        require(requests.count == 5, "Failed CAPTCHA authentication started data fetch")
+        model.stop()
+    }
+    print("PASS post-CAPTCHA read retry: network/timeout schedule, same-session recovery and no automatic failed-login retry")
 }
 
 @MainActor
@@ -531,6 +575,7 @@ func checks() async throws {
     try await checkSavedPasswordPresence(folder: folder)
     try await checkCaptchaModelLifecycle(folder: folder)
     try await checkCaptchaModelReloadAndFailure(folder: folder)
+    try await checkCaptchaPostLoginReadRetry(folder: folder)
     try await checkCaptchaPasswordContext(folder: folder)
     try await checkCaptchaLoginDiagnosticReset(folder: folder)
     try await checkCaptchaImageFailureRecovery(folder: folder)

@@ -172,6 +172,7 @@ final class DaouOfficePluginModel: ObservableObject {
         let current = generation
         task = Task { [weak self] in
             guard let self else { return }
+            var phase = operation
             do {
                 switch operation {
                 case .refresh: break
@@ -187,6 +188,8 @@ final class DaouOfficePluginModel: ObservableObject {
                     self.reportOutcome(operation)
                     return
                 }
+                // Authentication is complete; failures from here follow the data-refresh retry policy.
+                phase = .refresh
                 let value = try await self.registry.refresh(self.plugin.descriptor.id)
                 guard self.generation == current, self.enabled, !Task.isCancelled else { return }
                 self.snapshot = value; self.failures = 0
@@ -203,10 +206,10 @@ final class DaouOfficePluginModel: ObservableObject {
                 self.lastLoginDiagnostic = self.plugin.lastLoginDiagnostic
                 self.captchaChallenge = self.plugin.captchaChallenge
                 self.captchaRequired = self.plugin.requiresCaptcha
-                if case .submitCaptcha = operation, failure == .interactionRequired || failure == .authentication {
+                if case .submitCaptcha = phase, failure == .interactionRequired || failure == .authentication {
                     self.captchaLoginRejected = true
                 }
-                if case .refresh = operation,
+                if case .refresh = phase,
                    !self.captchaRequired,
                    self.diagnostic?.path != "/api/portal/public/auth/captcha",
                    failure == .network || failure == .timeout {

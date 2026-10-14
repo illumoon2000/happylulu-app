@@ -116,7 +116,10 @@ final class AppModel: ObservableObject {
                 let source = self.featureRouter.selectedID(for: .halfDay)
                 let fetchedAt = manager.registry.snapshot(for: source)?.fetchedAt
                 guard source != self.observedHalfDaySource || fetchedAt != self.observedHalfDaySnapshotAt else { return }
-                if source != self.observedHalfDaySource {
+                // Account/session replacement clears a plugin's snapshot without changing its source ID.
+                // A temporary fetch failure keeps that snapshot, so it still preserves the last good mode.
+                let snapshotCleared = self.observedHalfDaySnapshotAt != nil && fetchedAt == nil
+                if source != self.observedHalfDaySource || snapshotCleared {
                     self.observedHalfDaySource = source
                     self.calendarDetectionRequestGeneration += 1
                     self.calendarHalfDayMode = nil; self.calendarModeDay = nil

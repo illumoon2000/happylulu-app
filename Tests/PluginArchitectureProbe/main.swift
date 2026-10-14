@@ -16,6 +16,7 @@ func require(_ value: @autoclosure () -> Bool, _ message: String) { precondition
 final class ProbeController: ObservableObject, PluginController {
     let descriptor: PluginDescriptor
     @Published var enabled = true
+    @Published var sessionRevision = 0
     var starts = 0, stops = 0, refreshes = 0
     var changes: AnyPublisher<Void, Never> { objectWillChange.map { _ in () }.eraseToAnyPublisher() }
     var isRunning: Bool { false }
@@ -47,7 +48,13 @@ final class ProbeAdapter: FeatureAdapter {
 final class ProbeDataPlugin: AppPlugin {
     let descriptor: PluginDescriptor
     init(_ id: String) { descriptor = PluginDescriptor(id: id, name: id) }
-    func refresh() async throws -> PluginSnapshot { throw PluginFailure.unavailable }
+    var value: PluginSnapshot?
+    var failure: PluginFailure?
+    func refresh() async throws -> PluginSnapshot {
+        if let failure { throw failure }
+        guard let value else { throw PluginFailure.unavailable }
+        return value
+    }
     func cancel() {}
 }
 
@@ -70,6 +77,89 @@ enum FailingModule: PluginModule {
         try context.presentations.register(id) { Text("Fixture settings") }
         throw PluginFailure.configuration
     }
+}
+
+@MainActor
+private func waitForArchitecture(_ message: String, _ condition: () -> Bool) async throws {
+    let deadline = Date().addingTimeInterval(5)
+    while !condition() {
+        require(Date() < deadline, message)
+        try await Task.sleep(for: .milliseconds(5))
+    }
+}
+
+@MainActor
+private func checkHalfDaySessionInvalidation(root: URL) async throws {
+    let registry = PluginRegistry(), plugin = ProbeDataPlugin("daouoffice-fixture")
+    let controller = ProbeController(plugin.descriptor.id)
+    let manager = PluginManagerModel(defaultAdapter: ProbeAdapter("builtin"), registry: registry,
+        routingStore: FeatureRoutingStore(url: nil))
+    let adapter = SnapshotFeatureAdapter(descriptor: FeatureAdapterDescriptor(id: plugin.descriptor.id,
+        name: "Fixture", features: Set(AppFeature.allCases)), api: registry, timeZone: Calendar.current.timeZone)
+    try registry.register(plugin)
+    try manager.register(PluginRegistration(controller: controller, adapter: adapter, symbol: "calendar", summary: "Fixture"))
+    manager.select(plugin.descriptor.id, for: .halfDay)
+    let now = Date(), calendar = Calendar.current
+    let start = calendar.startOfDay(for: now), end = calendar.date(byAdding: .day, value: 1, to: start)!
+    let day = Attendance.dayKey(now, calendar: calendar)
+    let arrival = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: now)!
+    plugin.value = PluginSnapshot(pluginID: plugin.descriptor.id, fetchedAt: now, leave: nil, vacations: [],
+        events: [PluginCalendarEvent(id: "account-a", calendarID: "fixture", title: "오후 반차", start: start, end: end, isAllDay: true)],
+        coverage: PluginCoverage(calendarFrom: day, calendarThrough: day))
+    try registry.activate(plugin.descriptor.id)
+    try await registry.refresh(plugin.descriptor.id)
+    var state = AttendanceState(); state.didOfferLoginItem = true; state.detectHalfDaysFromCalendar = true
+    Attendance.recordUnlock(in: &state, at: arrival, calendar: calendar, calendarMode: nil)
+    let automaticStore = StateStore(url: root.appendingPathComponent("session-automatic.json"))
+    try automaticStore.save(state)
+    let automatic = AppModel(store: automaticStore, featureRouter: manager.router)
+    try Attendance.setManual(in: &state, at: arrival, now: arrival.addingTimeInterval(60), calendar: calendar,
+        selectedMode: .afternoonHalf, calendarMode: nil)
+    let manualStore = StateStore(url: root.appendingPathComponent("session-manual.json"))
+    try manualStore.save(state)
+    let manual = AppModel(store: manualStore, featureRouter: manager.router)
+    automatic.observeFeatures(manager); manual.observeFeatures(manager)
+    try await waitForArchitecture("Account A half-day was not applied") {
+        automatic.detectedModeToday == .afternoonHalf && manual.detectedModeToday == .afternoonHalf
+    }
+    require(automatic.arrival?.mode == .afternoonHalf, "Account A fixture did not affect automatic attendance")
+
+    // Temporary failure preserves the same account's last successful snapshot and mode.
+    plugin.failure = .network
+    do { try await registry.refresh(plugin.descriptor.id); fatalError("Expected fixture network failure") }
+    catch PluginFailure.network {}
+    controller.sessionRevision += 1
+    for _ in 0..<20 { await Task.yield() }
+    require(automatic.detectedModeToday == .afternoonHalf && automatic.arrival?.mode == .afternoonHalf,
+        "A temporary read failure discarded the current account's half-day")
+
+    // Account/session replacement clears registry data while the feature source ID stays selected.
+    registry.deactivate(plugin.descriptor.id); try registry.activate(plugin.descriptor.id)
+    plugin.failure = .interactionRequired
+    do { try await registry.refresh(plugin.descriptor.id); fatalError("Expected fixture CAPTCHA wait") }
+    catch PluginFailure.interactionRequired {}
+    controller.sessionRevision += 1
+    try await waitForArchitecture("Session invalidation did not notify attendance") {
+        automatic.calendarHalfDayMessage == FeatureAdapterFailure.missingSnapshot.localizedDescription &&
+            manual.calendarHalfDayMessage == FeatureAdapterFailure.missingSnapshot.localizedDescription
+    }
+    require(manager.router.selectedID(for: .halfDay) == plugin.descriptor.id,
+        "Account replacement unexpectedly changed the feature source")
+    require(automatic.detectedModeToday == nil && automatic.arrival?.mode == .normal,
+        "Same-source account/CAPTCHA replacement retained the previous account's automatic half-day")
+    require(manual.detectedModeToday == nil && manual.arrival?.mode == .afternoonHalf && manual.arrival?.modeSource == .manual,
+        "Session invalidation changed the user's manual workday choice")
+
+    plugin.failure = nil
+    plugin.value = PluginSnapshot(pluginID: plugin.descriptor.id, fetchedAt: now.addingTimeInterval(1),
+        leave: nil, vacations: [], events: [], coverage: PluginCoverage(calendarFrom: day, calendarThrough: day))
+    try await registry.refresh(plugin.descriptor.id); controller.sessionRevision += 1
+    try await waitForArchitecture("Account B fresh read did not replace the missing snapshot message") {
+        automatic.calendarHalfDayMessage != FeatureAdapterFailure.missingSnapshot.localizedDescription
+    }
+    require(automatic.detectedModeToday == nil && automatic.arrival?.mode == .normal,
+        "Account B inherited account A's half-day after recovery")
+    print("PASS half-day session invalidation: same source, CAPTCHA wait, automatic reset, manual preservation, transient failure and recovery")
 }
 
 @main
@@ -177,6 +267,8 @@ struct PluginArchitectureChecks {
         try presentations.register("beta") { Text("Second plugin settings") }
         require(presentations.view(for: "alpha") != nil && presentations.view(for: "beta") != nil, "Settings were hard-coded to a single plugin")
         do { try presentations.register("alpha") { Text("Replacement") }; fatalError("Duplicate presentation accepted") } catch {}
+
+        try await checkHalfDaySessionInvalidation(root: root)
 
         var state = AttendanceState(); state.didOfferLoginItem = true
         let stateStore = StateStore(url: root.appendingPathComponent("attendance.json")); try stateStore.save(state)
