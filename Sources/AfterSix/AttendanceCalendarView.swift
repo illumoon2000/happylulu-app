@@ -87,11 +87,10 @@ struct AttendanceCalendarView: View {
     }
 
     var body: some View {
-        let history = Dictionary(grouping: model.state.arrivals.values, by: Attendance.historyDay)
-            .mapValues { $0.sorted { $0.time < $1.time } }
+        let history = model.arrivalHistory
         VStack(alignment: .leading, spacing: 12) {
             MonthCalendarView(month: $month, selectedDay: $selectedDay, calendar: calendar, compact: compact) { day in
-                let key = Attendance.dayKey(day, calendar: calendar)
+                let key = model.dayKey(day, calendar: calendar)
                 if let records = history[key], let record = records.first {
                     Text(Attendance.clockLabel(record.time, timeZone: TimeZone(identifier: record.timeZoneID) ?? .current))
                         .font(.system(size: compact ? 9 : 12, weight: .medium)).monospacedDigit()
@@ -102,7 +101,7 @@ struct AttendanceCalendarView: View {
                     Text(L("쉬는 날", "Day off")).font(.system(size: compact ? 8 : 11)).foregroundStyle(.secondary)
                 }
             }
-            let key = Attendance.dayKey(selectedDay, calendar: calendar)
+            let key = model.dayKey(selectedDay, calendar: calendar)
             VStack(alignment: .leading, spacing: 6) {
                 Text(selectedDay.formatted(Date.FormatStyle(locale: displayLocale, calendar: calendar, timeZone: calendar.timeZone).month().day().weekday()))
                     .font(.system(size: compact ? 11 : 15, weight: .semibold))
@@ -133,7 +132,6 @@ struct AttendanceCalendarView: View {
     }
 
     private func isSuppressed(_ day: Date) -> Bool {
-        model.state.suppressedDays.contains(Attendance.dayKey(day, calendar: calendar)) ||
-        model.state.suppressedDays.contains(Attendance.dayKey(day, calendar: model.calendar))
+        model.isSuppressed(day, calendar: calendar)
     }
 }

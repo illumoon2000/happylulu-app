@@ -265,6 +265,13 @@ final class CalendarSyncModel: ObservableObject {
 
     func refreshDisplayedEvents() { eventsRevision += 1 }
 
+    /// Default adapter reads without coupling a feature view to display-loading state.
+    func featureEvents(in interval: DateInterval) async throws -> [SystemCalendarDisplayEvent] {
+        let ids = [selectedDaouCalendar, selectedGoogleCalendar].filter { !$0.isEmpty }
+        guard !ids.isEmpty else { return [] }
+        return try await eventDisplayAccess.displayEvents(calendarIDs: ids, start: interval.start, end: interval.end)
+    }
+
     func loadDisplayedEvents(start: Date, end: Date) async {
         eventReadGeneration += 1
         let generation = eventReadGeneration
