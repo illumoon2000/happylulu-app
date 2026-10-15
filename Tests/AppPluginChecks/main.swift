@@ -103,6 +103,7 @@ func checkConfigurationStore() throws {
     print("PASS configuration: opt-in default, restart, no password metadata and corruption preservation")
 }
 
+checkDailyAgenda()
 try checkAddress()
 try checkParser()
 try await checkAllDayMonthBoundary()

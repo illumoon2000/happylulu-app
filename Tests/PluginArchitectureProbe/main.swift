@@ -169,6 +169,47 @@ struct PluginArchitectureChecks {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("HappyLulu-architecture-" + UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
+        let manualDayStore = StateStore(url: root.appendingPathComponent("manual-day.json"))
+        let manualDayRouter = PluginManagerModel(defaultAdapter: ProbeAdapter("builtin"), routingStore: FeatureRoutingStore(url: nil))
+        let manualDayModel = AppModel(store: manualDayStore, featureRouter: manualDayRouter.router)
+        require(manualDayModel.setDayType(.annualLeave), "Annual leave must save without calendar access")
+        require(manualDayModel.todayDayType == .annualLeave && manualDayModel.arrival == nil && manualDayModel.isSkipped,
+                "Annual leave must pause today's attendance")
+        let loadedDay = AppModel(store: manualDayStore, featureRouter: manualDayRouter.router)
+        require(loadedDay.todayDayType == .annualLeave, "Annual leave must survive restart")
+        require(loadedDay.setDayType(.afternoonHalf) && loadedDay.arrival == nil && !loadedDay.isSkipped,
+                "Half-day choice must resume without inventing an arrival")
+        let persistedDay = try manualDayStore.load()
+        require(persistedDay.manualDayTypes[loadedDay.dayKey(loadedDay.now)] == .afternoonHalf,
+                "Half-day choice must be persisted")
+        print("PASS manual day AppModel: calendar-free annual/half-day selection, restart, no invented arrival")
+        require(loadedDay.setDayType(.luluDay) && loadedDay.effectiveDayType == .luluDay,
+                "Pending Lulu day must be reflected by the compact selector")
+        require(loadedDay.arrival == nil, "Lulu selection must not invent an arrival")
+        let priorFailedClock = loadedDay.state
+        require(!loadedDay.saveManual(loadedDay.now.addingTimeInterval(3600), selectedMode: nil)
+                && loadedDay.state == priorFailedClock, "Future manual time must be rejected without changing data")
+        require(!loadedDay.saveManualClockText("25:99", forDay: loadedDay.dayKey(loadedDay.now)),
+                "Invalid inline clock must be rejected")
+        let clockCalendar = Calendar.current
+        let fixtureClock = clockCalendar.date(bySettingHour: 9, minute: 0, second: 0, of: Date())!
+        var clockState = AttendanceState(); clockState.didOfferLoginItem = true
+        let clockDay = Attendance.dayKey(fixtureClock, calendar: clockCalendar)
+        clockState.arrivals[clockDay] = Arrival(day: clockDay, time: fixtureClock, source: .manual,
+            timeZoneID: clockCalendar.timeZone.identifier, mode: .normal, modeSource: .manual, earlyLeaveOverrideMinutes: 0)
+        let clockStore = StateStore(url: root.appendingPathComponent("compact-clock.json"))
+        try clockStore.save(clockState)
+        let clockModel = AppModel(store: clockStore, featureRouter: manualDayRouter.router, allowsLoginItemChanges: false)
+        require(clockModel.menuTitle.hasSuffix("18:00"), "Compact menu must use explicit 24-hour departure")
+        clockModel.setLoginEnabled(true)
+        require(clockModel.errorMessage != nil && clockModel.state == clockState,
+                "Development app must not register login items")
+        let beforeBadClock = clockModel.state
+        require(!clockModel.saveManualClockText("9:00", forDay: clockDay) && clockModel.state == beforeBadClock,
+                "Inline clock requires strict HH:mm without mutating saved state")
+        require(!clockModel.saveManualClockText("09:00", forDay: "1900-01-01") && clockModel.state == beforeBadClock,
+                "Inline clock must reject a stale editing date")
+        print("PASS compact panel model: explicit 24-hour title, login isolation and invalid/stale inline input preservation")
         let store = FeatureRoutingStore(url: root.appendingPathComponent("routes.json"))
         let absentStore = FeatureRoutingStore(url: root.appendingPathComponent("removed-plugin.json"))
         try absentStore.save([.calendar: "daouoffice", .leave: "daouoffice", .halfDay: "daouoffice"])

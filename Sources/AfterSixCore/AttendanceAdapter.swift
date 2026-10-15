@@ -6,6 +6,7 @@ public enum AttendanceCommand: Sendable {
     case manual(at: Date, now: Date, selectedMode: WorkdayMode?, calendarMode: WorkdayMode?)
     case refreshMode(now: Date, mode: WorkdayMode?)
     case skip(now: Date)
+    case dayType(ManualDayType, now: Date)
     case settings(work: Int, rest: Int)
 }
 
@@ -36,6 +37,7 @@ public struct DefaultAttendanceAdapter: AttendanceAdapter {
                 selectedMode: selectedMode, calendarMode: calendarMode)
         case let .refreshMode(now, mode):
             return Attendance.refreshAutomaticMode(in: &state, now: now, calendar: calendar, calendarMode: mode)
+        case let .dayType(type, now): try Attendance.setDayType(type, in: &state, now: now, calendar: calendar)
         case let .skip(now): Attendance.skipToday(in: &state, now: now, calendar: calendar)
         case let .settings(work, rest):
             var settings = state.settings

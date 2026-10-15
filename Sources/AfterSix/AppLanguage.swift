@@ -212,3 +212,16 @@ extension CountdownDisplay {
         }
     }
 }
+
+
+extension ManualDayType {
+    var displayLabel: String {
+        switch self {
+        case .regular: L("일반근무", "Regular")
+        case .morningHalf: L("오전 반차", "Morning off")
+        case .afternoonHalf: L("오후 반차", "Afternoon off")
+        case .luluDay: L("룰루데이", "Lulu day")
+        case .annualLeave: L("연차/공가", "Leave day")
+        }
+    }
+}
