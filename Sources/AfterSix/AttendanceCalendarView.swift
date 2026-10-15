@@ -91,12 +91,17 @@ struct AttendanceCalendarView: View {
         VStack(alignment: .leading, spacing: 12) {
             MonthCalendarView(month: $month, selectedDay: $selectedDay, calendar: calendar, compact: compact) { day in
                 let key = model.dayKey(day, calendar: calendar)
-                if let records = history[key], let record = records.first {
+                if model.dayType(on: day, calendar: calendar) == .annualLeave {
+                    Text(ManualDayType.annualLeave.displayLabel)
+                        .font(.system(size: compact ? 8 : 11)).foregroundStyle(accent)
+                } else if let records = history[key], let record = records.first {
                     Text(Attendance.clockLabel(record.time, timeZone: TimeZone(identifier: record.timeZoneID) ?? .current))
                         .font(.system(size: compact ? 9 : 12, weight: .medium)).monospacedDigit()
                         .lineLimit(1).minimumScaleFactor(0.75)
                     Text(records.count > 1 ? L("\(records.count)건", "\(records.count) records") : (record.mode == .normal ? L("출근", "Arrived") : record.mode.displayLabel))
                         .font(.system(size: compact ? 8 : 10)).foregroundStyle(accent).lineLimit(1).minimumScaleFactor(0.75)
+                } else if let type = model.dayType(on: day, calendar: calendar) {
+                    Text(type.displayLabel).font(.system(size: compact ? 8 : 11)).foregroundStyle(accent)
                 } else if isSuppressed(day) {
                     Text(L("쉬는 날", "Day off")).font(.system(size: compact ? 8 : 11)).foregroundStyle(.secondary)
                 }
@@ -105,8 +110,16 @@ struct AttendanceCalendarView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text(selectedDay.formatted(Date.FormatStyle(locale: displayLocale, calendar: calendar, timeZone: calendar.timeZone).month().day().weekday()))
                     .font(.system(size: compact ? 11 : 15, weight: .semibold))
+                if let type = model.dayType(on: selectedDay, calendar: calendar) {
+                    Text(type.displayLabel + " · " + L("직접 지정", "Chosen manually"))
+                        .foregroundStyle(accent)
+                }
                 if let records = history[key] {
                     ForEach(records, id: \.day) { record in
+                        if model.dayType(on: selectedDay, calendar: calendar) == .annualLeave {
+                            Text(L("연차 지정 전의 출근 기록을 보존했어요.", "Arrival saved before annual leave is preserved."))
+                                .foregroundStyle(.secondary)
+                        }
                         Text(L("출근 \(clock(record)) · \(record.mode.displayLabel)", "Arrived \(clock(record)) · \(record.mode.displayLabel)"))
                         Label(record.source == .manual ? L("직접 입력", "Manual entry") : (record.source == .login ? L("로그인 감지", "Login detected") : L("잠금 해제 감지", "Unlock detected")),
                               systemImage: record.source == .manual ? "pencil" : (record.source == .login ? "power" : "lock.open"))

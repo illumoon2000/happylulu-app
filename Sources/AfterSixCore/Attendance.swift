@@ -26,6 +26,29 @@ public enum WorkdayMode: String, Codable, CaseIterable, Sendable {
     }
 }
 
+public enum ManualDayType: String, Codable, CaseIterable, Sendable {
+    case regular, morningHalf, afternoonHalf, luluDay, annualLeave
+
+    public var selectionOrder: [Self] { [self] + Self.allCases.filter { $0 != self } }
+
+    public var earlyLeaveOverrideMinutes: Int? {
+        switch self {
+        case .regular: 0
+        case .luluDay: 120
+        default: nil
+        }
+    }
+
+    public var workdayMode: WorkdayMode? {
+        switch self {
+        case .regular, .luluDay: .normal
+        case .morningHalf: .morningHalf
+        case .afternoonHalf: .afternoonHalf
+        case .annualLeave: nil
+        }
+    }
+}
+
 public enum ModeSource: String, Codable, Sendable {
     case legacy, automatic, manual
 }
@@ -51,18 +74,20 @@ public struct Arrival: Codable, Equatable, Sendable {
     public let timeZoneID: String
     public let mode: WorkdayMode
     public let modeSource: ModeSource
+    public let earlyLeaveOverrideMinutes: Int?
 
     public init(day: String, time: Date, source: ArrivalSource, timeZoneID: String,
-                mode: WorkdayMode = .normal, modeSource: ModeSource = .legacy) {
+                mode: WorkdayMode = .normal, modeSource: ModeSource = .legacy, earlyLeaveOverrideMinutes: Int? = nil) {
         self.day = day
         self.time = time
         self.source = source
         self.timeZoneID = timeZoneID
         self.mode = mode
         self.modeSource = modeSource
+        self.earlyLeaveOverrideMinutes = earlyLeaveOverrideMinutes
     }
 
-    private enum CodingKeys: String, CodingKey { case day, time, source, timeZoneID, mode, modeSource }
+    private enum CodingKeys: String, CodingKey { case day, time, source, timeZoneID, mode, modeSource, earlyLeaveOverrideMinutes }
 
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -72,6 +97,7 @@ public struct Arrival: Codable, Equatable, Sendable {
         timeZoneID = try values.decode(String.self, forKey: .timeZoneID)
         mode = try values.decodeIfPresent(WorkdayMode.self, forKey: .mode) ?? .normal
         modeSource = try values.decodeIfPresent(ModeSource.self, forKey: .modeSource) ?? .legacy
+        earlyLeaveOverrideMinutes = try values.decodeIfPresent(Int.self, forKey: .earlyLeaveOverrideMinutes)
     }
 }
 
@@ -89,13 +115,14 @@ public struct AttendanceState: Codable, Equatable, Sendable {
     public var arrivals: [String: Arrival] = [:]
     // A cleared day stays suppressed until the next day or an explicit manual entry.
     public var suppressedDays: Set<String> = []
+    public var manualDayTypes: [String: ManualDayType] = [:]
     public var lastUnlockAt: Date?
     public var didOfferLoginItem = false
     public var detectHalfDaysFromCalendar = false
     public init() {}
 
     private enum CodingKeys: String, CodingKey {
-        case version, settings, arrivals, suppressedDays, lastUnlockAt, didOfferLoginItem, detectHalfDaysFromCalendar
+        case version, settings, arrivals, suppressedDays, manualDayTypes, lastUnlockAt, didOfferLoginItem, detectHalfDaysFromCalendar
     }
 
     public init(from decoder: Decoder) throws {
@@ -104,6 +131,7 @@ public struct AttendanceState: Codable, Equatable, Sendable {
         settings = try values.decode(WorkSettings.self, forKey: .settings)
         arrivals = try values.decode([String: Arrival].self, forKey: .arrivals)
         suppressedDays = try values.decode(Set<String>.self, forKey: .suppressedDays)
+        manualDayTypes = try values.decodeIfPresent([String: ManualDayType].self, forKey: .manualDayTypes) ?? [:]
         lastUnlockAt = try values.decodeIfPresent(Date.self, forKey: .lastUnlockAt)
         didOfferLoginItem = try values.decode(Bool.self, forKey: .didOfferLoginItem)
         detectHalfDaysFromCalendar = try values.decodeIfPresent(Bool.self, forKey: .detectHalfDaysFromCalendar) ?? false
@@ -137,7 +165,8 @@ public enum Attendance {
     }
 
     public static func today(in state: AttendanceState, now: Date, calendar: Calendar) -> Arrival? {
-        state.arrivals[dayKey(now, calendar: calendar)]
+        let day = dayKey(now, calendar: calendar)
+        return state.manualDayTypes[day] == .annualLeave ? nil : state.arrivals[day]
     }
 
     public static func isAllowed(_ date: Date, for mode: WorkdayMode, calendar: Calendar) -> Bool {
@@ -181,25 +210,39 @@ public enum Attendance {
         let minute = calendar.component(.hour, from: date) * 60 + calendar.component(.minute, from: date)
         let recordedAt = (6 * 60..<8 * 60).contains(minute)
             ? calendar.date(bySettingHour: 8, minute: 0, second: 0, of: date) ?? date : date
-        guard let mode = automaticMode(at: recordedAt, calendar: calendar, calendarMode: calendarMode),
+        let manualType = state.manualDayTypes[day]
+        guard manualType != .annualLeave,
+              let mode = automaticMode(at: recordedAt, calendar: calendar, calendarMode: manualType?.workdayMode ?? calendarMode),
               state.arrivals[day] == nil,
               !state.suppressedDays.contains(day) else { return false }
         state.arrivals[day] = Arrival(day: day, time: recordedAt, source: source,
                                       timeZoneID: calendar.timeZone.identifier,
-                                      mode: mode, modeSource: .automatic)
+                                      mode: mode, modeSource: manualType == nil ? .automatic : .manual,
+                                      earlyLeaveOverrideMinutes: manualType?.earlyLeaveOverrideMinutes)
         return true
     }
 
     public static func setManual(in state: inout AttendanceState, at date: Date, now: Date,
                                  calendar: Calendar, selectedMode: WorkdayMode? = nil,
                                  calendarMode: WorkdayMode? = nil) throws {
-        let mode = selectedMode ?? automaticMode(at: date, calendar: calendar, calendarMode: calendarMode)
+        let day = dayKey(now, calendar: calendar)
+        let pendingMode = state.manualDayTypes[day]?.workdayMode
+        let mode = selectedMode ?? pendingMode ?? automaticMode(at: date, calendar: calendar, calendarMode: calendarMode)
         guard date <= now, calendar.isDate(date, inSameDayAs: now),
               let mode, isAllowed(date, for: mode, calendar: calendar) else { throw AttendanceError.invalidTime }
-        let day = dayKey(now, calendar: calendar)
+        let previous = state.arrivals[day]
+        let override = selectedMode == .normal ? 0 : mode == .normal ? (previous != nil
+            ? previous?.earlyLeaveOverrideMinutes : state.manualDayTypes[day]?.earlyLeaveOverrideMinutes) : nil
         state.arrivals[day] = Arrival(day: day, time: date, source: .manual,
                                       timeZoneID: calendar.timeZone.identifier,
-                                      mode: mode, modeSource: selectedMode == nil ? .automatic : .manual)
+                                      mode: mode, modeSource: selectedMode == nil && pendingMode == nil ? .automatic : .manual,
+                                      earlyLeaveOverrideMinutes: override)
+        if let selectedMode {
+            state.manualDayTypes[day] = selectedMode == .normal ? .regular
+                : selectedMode == .morningHalf ? .morningHalf : .afternoonHalf
+        } else if state.manualDayTypes[day] == .annualLeave {
+            state.manualDayTypes.removeValue(forKey: day)
+        }
         state.suppressedDays.remove(day)
     }
 
@@ -207,18 +250,39 @@ public enum Attendance {
     public static func refreshAutomaticMode(in state: inout AttendanceState, now: Date,
                                             calendar: Calendar, calendarMode: WorkdayMode?) -> Bool {
         let day = dayKey(now, calendar: calendar)
-        guard let arrival = state.arrivals[day], arrival.modeSource == .automatic,
+        guard state.manualDayTypes[day] != .annualLeave,
+              let arrival = state.arrivals[day], arrival.modeSource == .automatic,
               let newMode = automaticMode(at: arrival.time, calendar: calendar, calendarMode: calendarMode)
                 ?? automaticMode(at: arrival.time, calendar: calendar),
               newMode != arrival.mode else { return false }
         state.arrivals[day] = Arrival(day: day, time: arrival.time, source: arrival.source,
-                                      timeZoneID: arrival.timeZoneID, mode: newMode, modeSource: .automatic)
+                                      timeZoneID: arrival.timeZoneID, mode: newMode, modeSource: .automatic,
+                                      earlyLeaveOverrideMinutes: arrival.earlyLeaveOverrideMinutes)
         return true
+    }
+
+    public static func setDayType(_ type: ManualDayType, in state: inout AttendanceState,
+                                  now: Date, calendar: Calendar) throws {
+        let day = dayKey(now, calendar: calendar)
+        if let mode = type.workdayMode, let arrival = state.arrivals[day] {
+            var recordedCalendar = calendar
+            recordedCalendar.timeZone = TimeZone(identifier: arrival.timeZoneID) ?? calendar.timeZone
+            guard isAllowed(arrival.time, for: mode, calendar: recordedCalendar) else {
+                throw AttendanceError.invalidTime
+            }
+            state.arrivals[day] = Arrival(day: arrival.day, time: arrival.time, source: arrival.source,
+                                          timeZoneID: arrival.timeZoneID, mode: mode, modeSource: .manual,
+                                          earlyLeaveOverrideMinutes: type.earlyLeaveOverrideMinutes)
+        }
+        state.manualDayTypes[day] = type
+        if type == .annualLeave { state.suppressedDays.insert(day) }
+        else { state.suppressedDays.remove(day) }
     }
 
     public static func skipToday(in state: inout AttendanceState, now: Date, calendar: Calendar) {
         let day = dayKey(now, calendar: calendar)
         state.arrivals.removeValue(forKey: day)
+        state.manualDayTypes.removeValue(forKey: day)
         state.suppressedDays.insert(day)
     }
 
@@ -232,7 +296,7 @@ public enum Attendance {
     }
 
     public static func earlyLeaveMinutes(for arrival: Arrival) -> Int {
-        earlyLeaveMinutes(on: arrival.time, timeZone: TimeZone(identifier: arrival.timeZoneID) ?? .current)
+        arrival.earlyLeaveOverrideMinutes ?? earlyLeaveMinutes(on: arrival.time, timeZone: TimeZone(identifier: arrival.timeZoneID) ?? .current)
     }
 
     public static func departure(for arrival: Arrival, settings: WorkSettings) -> Date {
@@ -286,6 +350,7 @@ public struct StateStore: Sendable {
         state.arrivals.allSatisfy { key, value in
             key == value.day && value.time.timeIntervalSince1970.isFinite
                 && TimeZone(identifier: value.timeZoneID) != nil
+                && (value.earlyLeaveOverrideMinutes == nil || [0, 120].contains(value.earlyLeaveOverrideMinutes!))
         }
     }
 

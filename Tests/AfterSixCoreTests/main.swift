@@ -28,6 +28,7 @@ func expectThrows<T>(_ value: @autoclosure () throws -> T, file: StaticString = 
 
 try checkEarlyArrival()
 try checkAttendanceAdapter()
+try checkManualDayTypes()
 
 let tests = AttendanceTests()
 let checks: [(String, () throws -> Void)] = [

@@ -169,6 +169,92 @@ struct PluginArchitectureChecks {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("HappyLulu-architecture-" + UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
+        let manualDayStore = StateStore(url: root.appendingPathComponent("manual-day.json"))
+        let manualDayRouter = PluginManagerModel(defaultAdapter: ProbeAdapter("builtin"), routingStore: FeatureRoutingStore(url: nil))
+        let manualDayModel = AppModel(store: manualDayStore, featureRouter: manualDayRouter.router)
+        require(manualDayModel.setDayType(.annualLeave), "Annual leave must save without calendar access")
+        require(manualDayModel.todayDayType == .annualLeave && manualDayModel.arrival == nil && manualDayModel.isSkipped,
+                "Annual leave must pause today's attendance")
+        let loadedDay = AppModel(store: manualDayStore, featureRouter: manualDayRouter.router)
+        require(loadedDay.todayDayType == .annualLeave, "Annual leave must survive restart")
+        require(loadedDay.setDayType(.afternoonHalf) && loadedDay.arrival == nil && !loadedDay.isSkipped,
+                "Half-day choice must resume without inventing an arrival")
+        let persistedDay = try manualDayStore.load()
+        require(persistedDay.manualDayTypes[loadedDay.dayKey(loadedDay.now)] == .afternoonHalf,
+                "Half-day choice must be persisted")
+        print("PASS manual day AppModel: calendar-free annual/half-day selection, restart, no invented arrival")
+        require(loadedDay.setDayType(.luluDay) && loadedDay.effectiveDayType == .luluDay,
+                "Pending Lulu day must be reflected by the compact selector")
+        require(loadedDay.arrival == nil, "Lulu selection must not invent an arrival")
+        let priorFailedClock = loadedDay.state
+        require(!loadedDay.saveManual(loadedDay.now.addingTimeInterval(3600), selectedMode: nil)
+                && loadedDay.state == priorFailedClock, "Future manual time must be rejected without changing data")
+        require(!loadedDay.saveManualClockText("25:99", forDay: loadedDay.dayKey(loadedDay.now)),
+                "Invalid inline clock must be rejected")
+        let clockCalendar = Calendar.current
+        let fixtureClock = clockCalendar.date(bySettingHour: 9, minute: 0, second: 0, of: Date())!
+        var clockState = AttendanceState(); clockState.didOfferLoginItem = true
+        let clockDay = Attendance.dayKey(fixtureClock, calendar: clockCalendar)
+        clockState.arrivals[clockDay] = Arrival(day: clockDay, time: fixtureClock, source: .manual,
+            timeZoneID: clockCalendar.timeZone.identifier, mode: .normal, modeSource: .manual, earlyLeaveOverrideMinutes: 0)
+        let clockStore = StateStore(url: root.appendingPathComponent("compact-clock.json"))
+        try clockStore.save(clockState)
+        let clockModel = AppModel(store: clockStore, featureRouter: manualDayRouter.router, allowsLoginItemChanges: false)
+        require(clockModel.menuTitle.hasSuffix("18:00"), "Compact menu must use explicit 24-hour departure")
+        clockModel.setLoginEnabled(true)
+        require(clockModel.errorMessage != nil && clockModel.state == clockState,
+                "Development app must not register login items")
+        let beforeBadClock = clockModel.state
+        require(!clockModel.saveManualClockText("9:00", forDay: clockDay) && clockModel.state == beforeBadClock,
+                "Inline clock requires strict HH:mm without mutating saved state")
+        require(!clockModel.saveManualClockText("09:00", forDay: "1900-01-01") && clockModel.state == beforeBadClock,
+                "Inline clock must reject a stale editing date")
+        print("PASS compact panel model: explicit 24-hour title, login isolation and invalid/stale inline input preservation")
+        // Keep today's editable clock in the past on every CI runner timezone.
+        let previousTimeZone = NSTimeZone.default
+        let utcHour = Calendar(identifier: .gregorian).dateComponents(in: TimeZone(secondsFromGMT: 0)!, from: Date()).hour!
+        NSTimeZone.default = TimeZone(secondsFromGMT: (16 - utcHour) * 3600)!
+        defer { NSTimeZone.default = previousTimeZone }
+        let regressionCalendar = Calendar.current
+        let regressionTime = regressionCalendar.date(bySettingHour: 9, minute: 0, second: 0, of: Date())!
+        let regressionDay = Attendance.dayKey(regressionTime, calendar: regressionCalendar)
+        var regressionState = AttendanceState()
+        regressionState.didOfferLoginItem = true
+        regressionState.detectHalfDaysFromCalendar = true
+        _ = Attendance.recordUnlock(in: &regressionState, at: regressionTime, calendar: regressionCalendar)
+        let regressionStore = StateStore(url: root.appendingPathComponent("attendance-regressions.json"))
+        try regressionStore.save(regressionState)
+        let regressionAdapter = ProbeAdapter("regression")
+        let regressionRouter = PluginManagerModel(defaultAdapter: regressionAdapter, routingStore: FeatureRoutingStore(url: nil))
+        let regressionModel = AppModel(store: regressionStore, featureRouter: regressionRouter.router, allowsLoginItemChanges: false)
+        require(regressionModel.saveManualClockText("09:01", forDay: regressionDay), "Clock-only edit must save")
+        require(regressionModel.arrival?.modeSource == .automatic && regressionModel.todayDayType == nil,
+                "Clock-only edit must preserve automatic workday mode")
+        regressionAdapter.titles = ["오후 반차"]
+        regressionModel.checkCalendarHalfDayNow()
+        try await waitForArchitecture("Calendar change after a clock edit was ignored") {
+            regressionModel.arrival?.mode == .afternoonHalf
+        }
+        require(regressionModel.setDayType(.annualLeave), "Annual leave must save with an existing arrival")
+        require(regressionModel.state.arrivals[regressionDay] != nil && regressionModel.isSkipped,
+                "Annual leave must preserve the arrival and pause automatic attendance")
+        require(regressionModel.canSkipToday, "Annual leave must leave the distinct arrival-deletion action enabled")
+        regressionModel.skipToday()
+        require(regressionModel.state.arrivals[regressionDay] == nil && regressionModel.todayDayType == nil
+                && regressionModel.isSkipped && !regressionModel.canSkipToday,
+                "Taking today off must clear the retained arrival and leave selection")
+        require(regressionModel.saveManualClockText("09:02", forDay: regressionDay, dayType: .luluDay),
+                "Combined Lulu selection and clock edit must save")
+        require(regressionModel.arrival?.earlyLeaveOverrideMinutes == 120 && regressionModel.todayDayType == .luluDay,
+                "Explicit Lulu choice must retain its reduction")
+        require(regressionModel.saveManualClockText("09:03", forDay: regressionDay)
+                && regressionModel.arrival?.earlyLeaveOverrideMinutes == 120
+                && regressionModel.arrival?.modeSource == .manual && regressionModel.todayDayType == .luluDay,
+                "Clock-only edit must preserve the existing manual Lulu choice")
+        require(regressionModel.saveManualClockText("09:04", forDay: regressionDay, dayType: .regular)
+                && regressionModel.arrival?.earlyLeaveOverrideMinutes == 0 && regressionModel.todayDayType == .regular,
+                "Combined regular selection and clock edit must clear the Lulu reduction")
+        print("PASS attendance regressions: inline clock preserves calendar updates; annual leave permits arrival deletion")
         let store = FeatureRoutingStore(url: root.appendingPathComponent("routes.json"))
         let absentStore = FeatureRoutingStore(url: root.appendingPathComponent("removed-plugin.json"))
         try absentStore.save([.calendar: "daouoffice", .leave: "daouoffice", .halfDay: "daouoffice"])

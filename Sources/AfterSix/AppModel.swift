@@ -14,6 +14,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var calendarHalfDayMessage: String?
     @Published private(set) var countdownDisplay = CountdownDisplay.saved()
     let store: StateStore
+    let allowsLoginItemChanges: Bool
     private var writable = true
     private var timer: Timer?
     private var lastPeriodicRefreshAt: Date?
@@ -34,7 +35,9 @@ final class AppModel: ObservableObject {
     var calendar: Calendar { Calendar.current }
     var arrival: Arrival? { attendance.today(in: state, now: now, calendar: calendar) }
     var departure: Date? { arrival.map { attendance.departure(for: $0, settings: state.settings) } }
+    var todayDayType: ManualDayType? { state.manualDayTypes[dayKey(now)] }
     var isSkipped: Bool { state.suppressedDays.contains(attendance.dayKey(now, calendar: calendar)) }
+    var canSkipToday: Bool { !isSkipped || todayDayType == .annualLeave }
     var minutesLeft: Int? { departure.map { attendance.remainingMinutes(until: $0, now: now) } }
     var countdownText: String {
         countdownDisplay.text(seconds: departure?.timeIntervalSince(now) ?? 0, korean: L("ko", "en") == "ko")
@@ -69,11 +72,24 @@ final class AppModel: ObservableObject {
         guard let arrival, let departure else { return 0 }
         return attendance.progress(from: arrival.time, until: departure, now: now)
     }
+    var effectiveDayType: ManualDayType {
+        if todayDayType == .annualLeave { return .annualLeave }
+        if let arrival {
+            switch arrival.mode {
+            case .morningHalf: return .morningHalf
+            case .afternoonHalf: return .afternoonHalf
+            case .normal: return attendance.earlyLeaveMinutes(for: arrival) > 0 ? .luluDay : .regular
+            }
+        }
+        if let todayDayType { return todayDayType }
+        if detectedModeToday == .morningHalf { return .morningHalf }
+        if detectedModeToday == .afternoonHalf { return .afternoonHalf }
+        return earlyLeaveMinutes > 0 ? .luluDay : .regular
+    }
     var menuTitle: String {
-        guard let minutesLeft else { return isSkipped ? L("오늘 쉬는 날", "Day off today") : L("출근 대기", "Waiting for arrival") }
-        guard minutesLeft == 0 else { return L("퇴근 \(countdownText)", "Leave in \(countdownText)") }
-        if let extraMinutes = postDepartureStatus?.extraMinutes { return extraLabel(extraMinutes) }
-        return L("퇴근 가능", "Ready to leave")
+        if let departure { return L("퇴근 \(timeLabel(departure))", "Leave \(timeLabel(departure))") }
+        if todayDayType == .annualLeave { return L("연차/공가", "Leave day") }
+        return isSkipped ? L("오늘 쉬는 날", "Day off today") : L("출근 대기", "Waiting for arrival")
     }
     func extraLabel(_ minutes: Int) -> String {
         L("추가 \(minutes)분 중", "Extra \(minutes) min")
@@ -98,8 +114,9 @@ final class AppModel: ObservableObject {
     }
 
     init(store: StateStore = .standard, attendance: any AttendanceAdapter = DefaultAttendanceAdapter(),
-         featureRouter: FeatureAdapterRouter) {
+         featureRouter: FeatureAdapterRouter, allowsLoginItemChanges: Bool = true) {
         self.store = store; self.attendance = attendance; self.featureRouter = featureRouter
+        self.allowsLoginItemChanges = allowsLoginItemChanges
         observedHalfDaySource = featureRouter.selectedID(for: .halfDay)
         do { state = try store.load() }
         catch {
@@ -136,6 +153,9 @@ final class AppModel: ObservableObject {
     func dayKey(_ day: Date, calendar: Calendar? = nil) -> String {
         attendance.dayKey(day, calendar: calendar ?? self.calendar)
     }
+    func dayType(on day: Date, calendar: Calendar) -> ManualDayType? {
+        state.manualDayTypes[dayKey(day, calendar: calendar)] ?? state.manualDayTypes[dayKey(day)]
+    }
     func isSuppressed(_ day: Date, calendar: Calendar) -> Bool {
         state.suppressedDays.contains(dayKey(day, calendar: calendar)) || state.suppressedDays.contains(dayKey(day))
     }
@@ -150,6 +170,32 @@ final class AppModel: ObservableObject {
               let date = calendar.date(bySettingHour: hour, minute: minute, second: 0,
                                        of: calendar.startOfDay(for: now)) else { return false }
         return saveManual(date, selectedMode: selectedMode)
+    }
+
+    @discardableResult
+    func saveManualClockText(_ text: String, forDay day: String, dayType: ManualDayType? = nil) -> Bool {
+        refresh()
+        guard day == dayKey(now) else {
+            errorMessage = L("날짜가 바뀌었습니다. 출근 시각을 다시 눌러 주세요.", "The date changed. Click the arrival time again.")
+            return false
+        }
+        guard text.range(of: #"^[0-9]{2}:[0-9]{2}$"#, options: .regularExpression) != nil else {
+            errorMessage = L("출근 시각을 HH:mm 형식으로 입력해 주세요.", "Enter the arrival time as HH:mm.")
+            return false
+        }
+        let parts = text.split(separator: ":")
+        guard let hour = Int(parts[0]), let minute = Int(parts[1]), (0...23).contains(hour), (0...59).contains(minute),
+              let date = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: now) else {
+            errorMessage = L("올바른 시각을 입력해 주세요.", "Enter a valid time.")
+            return false
+        }
+        let selectedDayType = dayType ?? (todayDayType == nil && arrival?.modeSource == .manual ? effectiveDayType : nil)
+        let selectedMode = selectedDayType?.workdayMode
+        return commit {
+            _ = try attendance.apply(.manual(at: date, now: now, selectedMode: selectedMode,
+                                              calendarMode: detectedModeToday), to: &$0, calendar: calendar)
+            if let selectedDayType { _ = try attendance.apply(.dayType(selectedDayType, now: now), to: &$0, calendar: calendar) }
+        }
     }
 
     func start(loginObservedAt: Date? = nil) {
@@ -167,7 +213,7 @@ final class AppModel: ObservableObject {
         startCountdownTimer()
         if state.detectHalfDaysFromCalendar { Task { await refreshCalendarHalfDay(force: true) } }
         // Register once; never fight a user's later System Settings choice.
-        if writable, !state.didOfferLoginItem {
+        if writable, allowsLoginItemChanges, !state.didOfferLoginItem {
             setLoginEnabled(true)
         }
     }
@@ -336,6 +382,12 @@ final class AppModel: ObservableObject {
         }
     }
 
+    @discardableResult
+    func setDayType(_ type: ManualDayType) -> Bool {
+        refresh()
+        return commit { _ = try attendance.apply(.dayType(type, now: now), to: &$0, calendar: calendar) }
+    }
+
     func skipToday() {
         refresh()
         commit { _ = try attendance.apply(.skip(now: now), to: &$0, calendar: calendar) }
@@ -348,6 +400,10 @@ final class AppModel: ObservableObject {
     }
 
     func setLoginEnabled(_ enabled: Bool) {
+        guard allowsLoginItemChanges else {
+            errorMessage = L("개발 앱에서는 로그인 자동 실행을 변경하지 않습니다.", "Login items are disabled in the development app.")
+            return
+        }
         do {
             if enabled && SMAppService.mainApp.status != .enabled && SMAppService.mainApp.status != .requiresApproval {
                 try SMAppService.mainApp.register()
@@ -369,7 +425,7 @@ final class AppModel: ObservableObject {
     }
 
     func timeLabel(_ date: Date) -> String {
-        displayClock(date, timeZone: calendar.timeZone)
+        Attendance.clockLabel(date, timeZone: calendar.timeZone)
     }
 
     func showData() { NSWorkspace.shared.selectFile(store.url.path, inFileViewerRootedAtPath: "") }

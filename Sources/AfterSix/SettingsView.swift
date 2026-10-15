@@ -70,6 +70,8 @@ struct SettingsView: View {
                 }
                 .listStyle(.sidebar)
                 .accessibilityLabel(L("설정 항목", "Settings sections"))
+                Button(L("HappyLulu 종료", "Quit HappyLulu")) { NSApplication.shared.terminate(nil) }
+                    .buttonStyle(.borderless).padding(12)
             }
             .frame(width: 190)
             Divider()
@@ -138,7 +140,7 @@ struct SettingsView: View {
                     .font(.caption).foregroundStyle(.secondary)
                 Toggle(L("로그인 시 자동 실행", "Launch at login"), isOn: Binding(
                     get: { model.loginEnabled }, set: { model.setLoginEnabled($0) }))
-                    .toggleStyle(.switch)
+                    .toggleStyle(.switch).disabled(!model.allowsLoginItemChanges)
                 Text(model.loginDescription).foregroundStyle(.secondary)
                 if model.loginStatus == .requiresApproval {
                     Button(L("시스템 설정에서 허용", "Allow in System Settings")) { SMAppService.openSystemSettingsLoginItems() }
@@ -159,6 +161,9 @@ struct SettingsView: View {
     private var workSection: some View {
         GroupBox(L("근무", "Work")) {
             VStack(alignment: .leading, spacing: 12) {
+                TodayDayTypeView(model: model)
+                AttendanceControlsView(model: model)
+                Divider()
                 Stepper(L("근무  \(model.duration(model.state.settings.workMinutes))", "Work  \(model.duration(model.state.settings.workMinutes))"), value: Binding(
                     get: { model.state.settings.workMinutes },
                     set: { model.updateSettings(work: $0, rest: model.state.settings.breakMinutes) }
