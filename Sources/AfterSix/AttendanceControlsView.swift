@@ -92,7 +92,7 @@ struct AttendanceControlsView: View {
             HStack {
                 Button(L("출근 시각 수정", "Edit arrival time")) { editing = true }
                 Button(L("오늘 쉬는 날", "Take today off")) { confirmSkip = true }
-                    .disabled(model.isSkipped)
+                    .disabled(!model.canSkipToday)
             }
             if let departure = model.departure, departure > model.now {
                 Text(L("퇴근까지 \(model.countdownText)", "Time to leave: \(model.countdownText)"))

@@ -122,6 +122,20 @@ func checkManualDayTypes() throws {
     expectEqual(Attendance.earlyLeaveMinutes(for: fridayState.arrivals["2026-10-30"]!), 120)
     _ = try adapter.apply(.dayType(.regular, now: friday), to: &fridayState, calendar: calendar)
     expectEqual(Attendance.earlyLeaveMinutes(for: fridayState.arrivals["2026-10-30"]!), 0)
+    for existing in [lulu, AttendanceState()] {
+        var explicitRegular = existing
+        try Attendance.setManual(in: &explicitRegular, at: morning, now: now, calendar: calendar,
+                                 selectedMode: .normal)
+        expectEqual(explicitRegular.arrivals[day]?.earlyLeaveOverrideMinutes, 0)
+        expectEqual(explicitRegular.manualDayTypes[day], .regular)
+        expectEqual(Attendance.departure(for: explicitRegular.arrivals[day]!, settings: explicitRegular.settings),
+                    tests.date("2026-10-15T18:00:00"))
+    }
+    var explicitFriday = AttendanceState()
+    expectTrue(Attendance.recordUnlock(in: &explicitFriday, at: friday, calendar: calendar))
+    try Attendance.setManual(in: &explicitFriday, at: friday, now: friday, calendar: calendar, selectedMode: .normal)
+    expectEqual(explicitFriday.arrivals["2026-10-30"]?.earlyLeaveOverrideMinutes, 0)
+    expectEqual(Attendance.earlyLeaveMinutes(for: explicitFriday.arrivals["2026-10-30"]!), 0)
     print("PASS Lulu day: pending selection, 120-minute override, regular restoration, manual correction, post-departure, persistence and Friday override")
     print("PASS manual day types: pending halves, calendar precedence, record preservation, annual leave, resume, next day and compatible persistence")
 }

@@ -231,14 +231,14 @@ public enum Attendance {
         guard date <= now, calendar.isDate(date, inSameDayAs: now),
               let mode, isAllowed(date, for: mode, calendar: calendar) else { throw AttendanceError.invalidTime }
         let previous = state.arrivals[day]
-        let override = mode == .normal ? (previous != nil
+        let override = selectedMode == .normal ? 0 : mode == .normal ? (previous != nil
             ? previous?.earlyLeaveOverrideMinutes : state.manualDayTypes[day]?.earlyLeaveOverrideMinutes) : nil
         state.arrivals[day] = Arrival(day: day, time: date, source: .manual,
                                       timeZoneID: calendar.timeZone.identifier,
                                       mode: mode, modeSource: selectedMode == nil && pendingMode == nil ? .automatic : .manual,
                                       earlyLeaveOverrideMinutes: override)
         if let selectedMode {
-            state.manualDayTypes[day] = selectedMode == .normal ? (override == 120 ? .luluDay : .regular)
+            state.manualDayTypes[day] = selectedMode == .normal ? .regular
                 : selectedMode == .morningHalf ? .morningHalf : .afternoonHalf
         } else if state.manualDayTypes[day] == .annualLeave {
             state.manualDayTypes.removeValue(forKey: day)

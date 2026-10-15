@@ -37,6 +37,7 @@ final class AppModel: ObservableObject {
     var departure: Date? { arrival.map { attendance.departure(for: $0, settings: state.settings) } }
     var todayDayType: ManualDayType? { state.manualDayTypes[dayKey(now)] }
     var isSkipped: Bool { state.suppressedDays.contains(attendance.dayKey(now, calendar: calendar)) }
+    var canSkipToday: Bool { !isSkipped || todayDayType == .annualLeave }
     var minutesLeft: Int? { departure.map { attendance.remainingMinutes(until: $0, now: now) } }
     var countdownText: String {
         countdownDisplay.text(seconds: departure?.timeIntervalSince(now) ?? 0, korean: L("ko", "en") == "ko")
@@ -188,11 +189,12 @@ final class AppModel: ObservableObject {
             errorMessage = L("올바른 시각을 입력해 주세요.", "Enter a valid time.")
             return false
         }
-        let selectedMode = (dayType ?? effectiveDayType).workdayMode
+        let selectedDayType = dayType ?? (todayDayType == nil && arrival?.modeSource == .manual ? effectiveDayType : nil)
+        let selectedMode = selectedDayType?.workdayMode
         return commit {
             _ = try attendance.apply(.manual(at: date, now: now, selectedMode: selectedMode,
                                               calendarMode: detectedModeToday), to: &$0, calendar: calendar)
-            if let dayType { _ = try attendance.apply(.dayType(dayType, now: now), to: &$0, calendar: calendar) }
+            if let selectedDayType { _ = try attendance.apply(.dayType(selectedDayType, now: now), to: &$0, calendar: calendar) }
         }
     }
 
