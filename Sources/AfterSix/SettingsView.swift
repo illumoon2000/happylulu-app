@@ -1,3 +1,4 @@
+import AppPluginHost
 import SwiftUI
 import ServiceManagement
 import AfterSixCore
@@ -5,7 +6,7 @@ import AfterSixCore
 private typealias SettingsState<Value> = SwiftUI.State<Value>
 
 enum SettingsSection: String, CaseIterable, Identifiable {
-    case general, work, history, calendar, updates
+    case general, work, history, calendar, plugins, updates
 
     var id: String { rawValue }
     var title: String {
@@ -14,6 +15,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .work: L("근무", "Work")
         case .history: L("출근 기록", "Arrival history")
         case .calendar: L("캘린더", "Calendar")
+        case .plugins: L("플러그인", "Plugins")
         case .updates: L("업데이트", "Updates")
         }
     }
@@ -23,6 +25,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .work: "clock"
         case .history: "calendar"
         case .calendar: "calendar"
+        case .plugins: "puzzlepiece.extension"
         case .updates: "arrow.down.circle"
         }
     }
@@ -32,6 +35,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .work: L("근무 시간과 휴게 시간을 설정합니다.", "Set your work and break hours.")
         case .history: L("저장된 출근 기록을 월별로 확인합니다.", "Browse saved arrivals by month.")
         case .calendar: L("반차 인식과 캘린더 동기화를 관리합니다.", "Manage half-day detection and calendar sync.")
+        case .plugins: L("플러그인과 앱 기능의 연결을 관리합니다.", "Manage plugins and their connections to app features.")
         case .updates: L("앱 버전과 자동 업데이트를 관리합니다.", "Manage the app version and automatic updates.")
         }
     }
@@ -47,6 +51,9 @@ struct SettingsView: View {
     @ObservedObject var updater: AppUpdater
     @ObservedObject private var language = AppLanguage.shared
     @ObservedObject var calendarSync: CalendarSyncModel
+    @ObservedObject var plugins: PluginManagerModel
+    @ObservedObject var featureCalendar: FeatureCalendarModel
+    let pluginPresentations: PluginSettingsPresentationRegistry
     @ObservedObject var navigation: SettingsNavigation
     @SettingsState private var showSyncSettings = false
     private let accent = Color(red: 0.16, green: 0.48, blue: 0.42)
@@ -78,15 +85,18 @@ struct SettingsView: View {
                     case .history: historySection
                     case .calendar:
                         Picker(L("캘린더 화면", "Calendar view"), selection: $showSyncSettings) {
-                            Text(L("동기화 일정", "Synced events")).tag(false)
+                            Text(L("일정", "Events")).tag(false)
                             Text(L("동기화 설정", "Sync settings")).tag(true)
                         }.pickerStyle(.segmented)
                         if showSyncSettings {
                             calendarSection
                             CalendarSyncSettingsView(model: calendarSync)
                         } else {
-                            SyncedEventsCalendarView(model: calendarSync, onOpenSettings: { showSyncSettings = true })
+                            FeatureCalendarView(model: featureCalendar, plugins: plugins, sync: calendarSync,
+                                onOpenSettings: { navigation.selection = .plugins })
                         }
+                    case .plugins: PluginSettingsView(model: plugins, presentations: pluginPresentations,
+                        onOpenCalendarSettings: { showSyncSettings = true; navigation.selection = .calendar })
                     case .updates: updatesSection
                     }
                     if let error = model.errorMessage {
@@ -174,7 +184,9 @@ struct SettingsView: View {
                     get: { model.state.detectHalfDaysFromCalendar },
                     set: { model.setCalendarHalfDayDetection($0) }))
                     .toggleStyle(.switch)
-                Text(L("접근 가능한 모든 캘린더의 '오전 반차'·'오후 반차' 제목을 읽습니다. 공유 캘린더의 다른 사람 반차도 확인해 주세요. 일정이 모호하면 출근 시각으로 판단해요.", "Reads morning and afternoon off titles from all accessible calendars. Check shared calendars for other people’s leave. Ambiguous events fall back to arrival time."))
+                Text(plugins.router.selectedID(for: .halfDay) == plugins.router.defaultID
+                     ? L("접근 가능한 Mac 캘린더의 '오전 반차'·'오후 반차' 제목을 읽습니다. 공유 캘린더의 다른 사람 반차도 확인해 주세요. 일정이 모호하면 출근 시각으로 판단해요.", "Reads morning and afternoon off titles from accessible Mac calendars. Check shared calendars for other people’s leave. Ambiguous events fall back to arrival time.")
+                     : L("\(plugins.adapterName(plugins.router.selectedID(for: .halfDay))) 일정의 '오전 반차'·'오후 반차' 제목을 읽습니다. 일반 연차에서 반차 유형을 추정하지 않으며, 직접 지정한 근무 유형은 유지합니다.", "Reads explicit morning/afternoon off titles from \(plugins.adapterName(plugins.router.selectedID(for: .halfDay))). Leave amounts do not imply a half-day type. Manual workday choices are preserved."))
                     .foregroundStyle(.secondary)
                 if model.state.detectHalfDaysFromCalendar {
                     Button(L("반차 일정 다시 확인", "Check half-day events again")) { model.checkCalendarHalfDayNow() }

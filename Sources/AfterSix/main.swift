@@ -1,3 +1,4 @@
+import AppPluginHost
 import AppKit
 import SwiftUI
 import Combine
@@ -5,13 +6,23 @@ import EventKit
 import ServiceManagement
 import AfterSixCore
 import MacLaunchSupport
+import AppPluginCore
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var statusItem: NSStatusItem!
     private let popover = NSPopover()
-    private let model = AppModel()
     private let calendarSync = CalendarSyncModel()
+    private let pluginPresentations = PluginSettingsPresentationRegistry()
+    private lazy var plugins: PluginManagerModel = {
+        let manager = PluginManagerModel(defaultAdapter: DefaultFeatureAdapter(sync: calendarSync))
+        BundledPlugins.register(in: PluginHostContext(registry: manager.registry,
+            presentations: pluginPresentations, register: manager.register, rollback: manager.rollbackRegistration, localize: L),
+            onFailure: manager.reportRegistrationFailure)
+        return manager
+    }()
+    private lazy var model = AppModel(featureRouter: plugins.router)
+    private lazy var featureCalendar = FeatureCalendarModel(router: plugins.router)
     private let updater = AppUpdater()
     private let settingsNavigation = SettingsNavigation()
     private var settingsWindow: NSWindow?
@@ -43,7 +54,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         popover.behavior = .transient
         popover.contentSize = NSSize(width: 364, height: 470)
-        popover.contentViewController = NSHostingController(rootView: PanelView(model: model, calendarSync: calendarSync, onOpenHistory: { [weak self] in
+        popover.contentViewController = NSHostingController(rootView: PanelView(model: model, calendarSync: calendarSync, plugins: plugins, onOpenHistory: { [weak self] in
             self?.openSettings(section: .history)
         }, onOpenSettings: { [weak self] in
             self?.openSettings()
@@ -58,11 +69,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             }
         }
         let firstLaunch = !model.state.didOfferLoginItem
+        model.observeFeatures(plugins)
         model.start(loginObservedAt: loginObservedAt)
         calendarSync.start()
+        plugins.start()
         updater.canInstallNow = { [weak self] in
             guard let self else { return false }
-            return !self.model.isProcessingAttendance && !self.calendarSync.isRunning
+            return !self.model.isProcessingAttendance && !self.calendarSync.isRunning && !self.plugins.isRunning
                 && !NSApplication.shared.isActive
                 && !NSApplication.shared.windows.contains { $0.isVisible && $0.level == .normal }
         }
@@ -70,6 +83,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         updateTitle()
         if firstLaunch { togglePanel() }
         if CommandLine.arguments.contains("--calendar") { openSettings(section: .calendar) }
+        if CommandLine.arguments.contains("--plugins") { openSettings(section: .plugins) }
     }
 
     private func updateTitle() {
@@ -106,7 +120,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             window.delegate = self
             window.isReleasedWhenClosed = false
             window.contentViewController = NSHostingController(rootView: SettingsView(
-                model: model, updater: updater, calendarSync: calendarSync, navigation: settingsNavigation))
+                model: model, updater: updater, calendarSync: calendarSync, plugins: plugins,
+                featureCalendar: featureCalendar, pluginPresentations: pluginPresentations, navigation: settingsNavigation))
             window.center()
             settingsWindow = window
         }
@@ -115,12 +130,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        if updater.isInstallingUpdate && (model.isProcessingAttendance || calendarSync.isRunning) {
+        if updater.isInstallingUpdate && (model.isProcessingAttendance || calendarSync.isRunning || plugins.isRunning) {
             updater.installationWasDeferred()
             return .terminateCancel
         }
         return .terminateNow
     }
+
+    func applicationWillTerminate(_ notification: Notification) { plugins.stop() }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         openSettings()
@@ -201,6 +218,12 @@ if CommandLine.arguments.contains("--status") {
         FileHandle.standardError.write(Data("HappyLulu: state could not be read.\n".utf8))
         exit(1)
     }
+}
+
+if CommandLine.arguments.contains("--plugin-modules") {
+    // Composition diagnostics only: no controller, Keychain, attendance or timers are created.
+    print(BundledPlugins.modules.map { $0.id }.joined(separator: ","))
+    exit(0)
 }
 
 let application = NSApplication.shared

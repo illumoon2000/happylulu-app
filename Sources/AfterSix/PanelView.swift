@@ -39,6 +39,7 @@ struct PanelView: View {
     @ObservedObject var model: AppModel
     @ObservedObject private var language = AppLanguage.shared
     @ObservedObject var calendarSync: CalendarSyncModel
+    @ObservedObject var plugins: PluginManagerModel
     @LocalState private var historyVisible = false
     let onOpenHistory: () -> Void
     let onOpenSettings: () -> Void
@@ -67,6 +68,7 @@ struct PanelView: View {
                         AttendanceCalendarView(model: model, compact: true)
                     }
                     CalendarSyncStatusView(model: calendarSync)
+                    LeaveSummaryView(model: plugins, compact: true)
                     Button(L("전체 출근 캘린더 열기", "Open arrival calendar"), action: onOpenHistory)
                         .buttonStyle(.borderless)
                     lastUnlockStatus
@@ -194,7 +196,7 @@ struct PanelView: View {
                 editTime = model.arrival?.time ?? model.now
                 editMode = model.arrival?.modeSource == .manual
                     ? ManualModeChoice.from(model.arrival!.mode) : .automatic
-                editDay = Attendance.dayKey(model.now, calendar: model.calendar)
+                editDay = model.dayKey(model.now)
                 editing.toggle()
             } label: { Label(model.arrival == nil ? L("출근 시각 입력", "Enter arrival time") : L("출근 시각 수정", "Edit arrival time"), systemImage: "pencil") }
                 .buttonStyle(.borderedProminent).controlSize(.small)
@@ -218,16 +220,7 @@ struct PanelView: View {
                 Spacer()
                 Button(L("취소", "Cancel")) { editing = false }.controlSize(.small)
                 Button(L("저장", "Save")) {
-                    model.refresh()
-                    guard editDay == Attendance.dayKey(model.now, calendar: model.calendar) else {
-                        model.errorMessage = "날짜가 바뀌었습니다. 입력 창을 다시 열어 주세요."
-                        editing = false
-                        return
-                    }
-                    let components = model.calendar.dateComponents([.hour, .minute], from: editTime)
-                    let start = model.calendar.startOfDay(for: model.now)
-                    if let date = model.calendar.date(bySettingHour: components.hour!, minute: components.minute!, second: 0, of: start),
-                       model.saveManual(date, selectedMode: editMode.selectedMode) {
+                    if model.saveManualClock(editTime, forDay: editDay, selectedMode: editMode.selectedMode) {
                         editing = false
                     }
                 }.controlSize(.small).buttonStyle(.borderedProminent)

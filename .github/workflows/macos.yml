@@ -64,6 +64,16 @@ jobs:
           bash scripts/check-calendar-diagnostics.sh
           bash scripts/check-calendar-runtime.sh
           bash scripts/check-automatic-install.sh
+          bash scripts/check-plugin-architecture.sh
+          bash scripts/check-plugin-isolation.sh
+      - name: Check optional Daouoffice integration
+        run: |
+          if [[ "${HAPPY_LULU_DISABLE_DAOUOFFICE:-}" != "1" && -d Sources/DaouOfficePlugin && -d Sources/DaouOfficeIntegration ]]; then
+            swift run --build-system native AppPluginChecks
+            bash scripts/check-daouoffice-model.sh
+          else
+            echo 'Daouoffice module is excluded; common app checks still run.'
+          fi
       - name: Package and verify Universal app without private keys
         run: |
           bash scripts/package-release.sh

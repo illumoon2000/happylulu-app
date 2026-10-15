@@ -51,6 +51,13 @@ func L(_ korean: String, _ english: String) -> String { usesEnglish ? english : 
 func visibleMessage(_ message: String) -> String {
     guard usesEnglish else { return message }
     let translations: [String: String] = [
+        "기능 연결 설정을 읽지 못했습니다. 원본을 보존하고 기본 연결을 사용합니다.": "Could not read feature sources. The original file is preserved; using defaults.",
+        "기능 연결을 저장하지 못했습니다. 연결 상태와 설정 파일 접근 권한을 확인해 주세요.": "Could not save the feature source. Check the connection and settings file access.",
+        "기능 연결을 저장하지 못했습니다. 이번 실행에서는 기본 연결로 돌아갑니다.": "Could not save the feature source. Using the default for this session.",
+        "플러그인을 등록하지 못했습니다. 기본 기능은 계속 사용할 수 있습니다.": "Could not register the plugin. Built-in features remain available.",
+        "선택한 달은 연결의 조회 범위 밖입니다. 플러그인 설정에서 조회 가능한 기간을 확인해 주세요.": "This month is outside the source’s fetched range. Check the available dates in Plugins settings.",
+        "플러그인의 조회 결과가 없습니다. 플러그인 설정에서 연결 상태를 확인하고 다시 조회해 주세요.": "No plugin data is available. Check its connection and fetch again in Plugins.",
+        "선택한 기능 연결을 사용할 수 없습니다. 플러그인 설정을 확인해 주세요.": "This feature source is unavailable. Check Plugins settings.",
         "날짜가 바뀌었습니다. 입력 창을 다시 열어 주세요.": "The date changed. Reopen the editor.",
         "캘린더 접근을 허용해야 반차 일정을 자동 인식할 수 있습니다.": "Allow calendar access to detect half-day events automatically.",
         "캘린더 반차와 기록된 출근 시각이 맞지 않아 출근 시각으로 다시 판단했어요. 필요하면 근무 유형을 직접 지정해 주세요.": "The calendar half-day conflicts with the recorded arrival. The workday type was recalculated from arrival; choose it manually if needed.",

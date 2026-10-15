@@ -91,12 +91,16 @@ Apple Developer ID·공증과 Windows 게시자 서명은 미완료입니다. In
 
 ## 개발과 검증
 
+로컬 개발 앱에는 여러 플러그인을 등록하는 탭과 기능별 연결 선택이 추가되었습니다. 설정 → 플러그인의 목록에서 다우오피스를 연결한 뒤, 상단에서 캘린더·휴가 현황·반차 인식에 사용할 출처를 선택합니다. 기본 어댑터는 기존 Mac 기능을 유지하며 플러그인을 끄면 해당 기능이 기본 연결로 돌아갑니다. API·조회 범위·검증 한계는 [플러그인 안내](PLUGINS.md)를 참고하세요. 공개 1.5.12 릴리즈의 기능 설명과는 구분합니다.
+
 Swift 6와 macOS Command Line Tools를 사용합니다. Windows는 [.NET 빌드 안내](../windows/README.md)를 따릅니다.
 
 ```sh
 swift run --build-system native AfterSixChecks
 swift run --build-system native CalendarSyncChecks
 swift run --build-system native CalendarSyncServiceChecks
+swift run --build-system native AppPluginChecks
+bash scripts/check-daouoffice-model.sh
 bash scripts/build-app.sh
 ```
 

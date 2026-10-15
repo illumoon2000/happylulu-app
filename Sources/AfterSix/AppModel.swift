@@ -2,6 +2,7 @@ import AppKit
 import Combine
 import ServiceManagement
 import AfterSixCore
+import AppPluginCore
 
 @MainActor
 final class AppModel: ObservableObject {
@@ -16,7 +17,12 @@ final class AppModel: ObservableObject {
     private var writable = true
     private var timer: Timer?
     private var lastPeriodicRefreshAt: Date?
-    private let halfDayCalendar = HalfDayCalendarReader()
+    private let attendance: any AttendanceAdapter
+    private let featureRouter: FeatureAdapterRouter
+    private var featureObservation: AnyCancellable?
+    private var observedHalfDaySource: String
+    private var observedHalfDaySnapshotAt: Date?
+    private var halfDayRefreshGeneration = 0
     private var calendarModeDay: String?
     private var lastCalendarCheckAt: Date?
     private var pendingArrivals: [(at: Date, isLogin: Bool)] = []
@@ -26,10 +32,10 @@ final class AppModel: ObservableObject {
     var isProcessingAttendance: Bool { processingArrivals }
 
     var calendar: Calendar { Calendar.current }
-    var arrival: Arrival? { Attendance.today(in: state, now: now, calendar: calendar) }
-    var departure: Date? { arrival.map { Attendance.departure(for: $0, settings: state.settings) } }
-    var isSkipped: Bool { state.suppressedDays.contains(Attendance.dayKey(now, calendar: calendar)) }
-    var minutesLeft: Int? { departure.map { Attendance.remainingMinutes(until: $0, now: now) } }
+    var arrival: Arrival? { attendance.today(in: state, now: now, calendar: calendar) }
+    var departure: Date? { arrival.map { attendance.departure(for: $0, settings: state.settings) } }
+    var isSkipped: Bool { state.suppressedDays.contains(attendance.dayKey(now, calendar: calendar)) }
+    var minutesLeft: Int? { departure.map { attendance.remainingMinutes(until: $0, now: now) } }
     var countdownText: String {
         countdownDisplay.text(seconds: departure?.timeIntervalSince(now) ?? 0, korean: L("ko", "en") == "ko")
     }
@@ -50,18 +56,18 @@ final class AppModel: ObservableObject {
         if let timer { RunLoop.main.add(timer, forMode: .common) }
     }
     var postDepartureStatus: PostDepartureStatus? {
-        Attendance.postDepartureStatus(in: state, now: now, calendar: calendar)
+        attendance.postDepartureStatus(in: state, now: now, calendar: calendar)
     }
     var earlyLeaveMinutes: Int {
-        if let arrival { return arrival.mode == .normal ? Attendance.earlyLeaveMinutes(for: arrival) : 0 }
-        return Attendance.earlyLeaveMinutes(on: now, timeZone: calendar.timeZone)
+        if let arrival { return arrival.mode == .normal ? attendance.earlyLeaveMinutes(for: arrival) : 0 }
+        return attendance.earlyLeaveMinutes(on: now, timeZone: calendar.timeZone)
     }
     var detectedModeToday: WorkdayMode? {
-        calendarModeDay == Attendance.dayKey(now, calendar: calendar) ? calendarHalfDayMode : nil
+        calendarModeDay == attendance.dayKey(now, calendar: calendar) ? calendarHalfDayMode : nil
     }
     var progress: Double {
         guard let arrival, let departure else { return 0 }
-        return Attendance.progress(from: arrival.time, until: departure, now: now)
+        return attendance.progress(from: arrival.time, until: departure, now: now)
     }
     var menuTitle: String {
         guard let minutesLeft else { return isSkipped ? L("오늘 쉬는 날", "Day off today") : L("출근 대기", "Waiting for arrival") }
@@ -91,14 +97,59 @@ final class AppModel: ObservableObject {
         }
     }
 
-    init(store: StateStore = .standard) {
-        self.store = store
+    init(store: StateStore = .standard, attendance: any AttendanceAdapter = DefaultAttendanceAdapter(),
+         featureRouter: FeatureAdapterRouter) {
+        self.store = store; self.attendance = attendance; self.featureRouter = featureRouter
+        observedHalfDaySource = featureRouter.selectedID(for: .halfDay)
         do { state = try store.load() }
         catch {
             state = AttendanceState()
             writable = false
             errorMessage = "저장된 기록을 불러오지 못했습니다. 원본을 보존했으며 새 기록 저장을 중지했습니다. \(error.localizedDescription)"
         }
+    }
+
+    func observeFeatures(_ manager: PluginManagerModel) {
+        featureObservation = manager.$revision.sink { [weak self, weak manager] _ in
+            Task { @MainActor [weak self, weak manager] in
+                guard let self, let manager else { return }
+                let source = self.featureRouter.selectedID(for: .halfDay)
+                let fetchedAt = manager.registry.snapshot(for: source)?.fetchedAt
+                guard source != self.observedHalfDaySource || fetchedAt != self.observedHalfDaySnapshotAt else { return }
+                // Account/session replacement clears a plugin's snapshot without changing its source ID.
+                // A temporary fetch failure keeps that snapshot, so it still preserves the last good mode.
+                let snapshotCleared = self.observedHalfDaySnapshotAt != nil && fetchedAt == nil
+                if source != self.observedHalfDaySource || snapshotCleared {
+                    self.observedHalfDaySource = source
+                    self.calendarDetectionRequestGeneration += 1
+                    self.calendarHalfDayMode = nil; self.calendarModeDay = nil
+                    self.calendarHalfDayMessage = nil; self.lastCalendarCheckAt = nil
+                    if self.state.detectHalfDaysFromCalendar { self.applyCalendarHalfDay(nil, checkedAt: Date()) }
+                }
+                self.observedHalfDaySnapshotAt = fetchedAt
+                if self.state.detectHalfDaysFromCalendar { await self.refreshCalendarHalfDay(force: true) }
+            }
+        }
+    }
+
+    var arrivalHistory: [String: [Arrival]] { attendance.history(in: state) }
+    func dayKey(_ day: Date, calendar: Calendar? = nil) -> String {
+        attendance.dayKey(day, calendar: calendar ?? self.calendar)
+    }
+    func isSuppressed(_ day: Date, calendar: Calendar) -> Bool {
+        state.suppressedDays.contains(dayKey(day, calendar: calendar)) || state.suppressedDays.contains(dayKey(day))
+    }
+    func saveManualClock(_ clock: Date, forDay day: String, selectedMode: WorkdayMode?) -> Bool {
+        refresh()
+        guard day == dayKey(now) else {
+            errorMessage = "날짜가 바뀌었습니다. 입력 창을 다시 열어 주세요."
+            return false
+        }
+        let components = calendar.dateComponents([.hour, .minute], from: clock)
+        guard let hour = components.hour, let minute = components.minute,
+              let date = calendar.date(bySettingHour: hour, minute: minute, second: 0,
+                                       of: calendar.startOfDay(for: now)) else { return false }
+        return saveManual(date, selectedMode: selectedMode)
     }
 
     func start(loginObservedAt: Date? = nil) {
@@ -160,8 +211,7 @@ final class AppModel: ObservableObject {
             var observation = CalendarModeObservation.confirmed(nil)
             if state.detectHalfDaysFromCalendar {
                 do {
-                    observation = .confirmed(try await halfDayCalendar.detect(on: receivedAt,
-                                                                              timeZone: calendar.timeZone))
+                    observation = .confirmed(HalfDayRecognition.mode(from: try await featureRouter.halfDayTitles(on: receivedAt, timeZone: calendar.timeZone)))
                 } catch {
                     observation = .unavailable
                     calendarHalfDayMessage = error.localizedDescription
@@ -173,11 +223,9 @@ final class AppModel: ObservableObject {
                 ? observation.resolved(previous: detectedModeToday) : nil
             commit { state in
                 if event.isLogin {
-                    Attendance.recordLogin(in: &state, at: receivedAt, calendar: calendar,
-                                           calendarMode: detected)
+                    _ = try attendance.apply(.login(at: receivedAt, mode: detected), to: &state, calendar: calendar)
                 } else {
-                    Attendance.recordUnlock(in: &state, at: receivedAt, calendar: calendar,
-                                            calendarMode: detected)
+                    _ = try attendance.apply(.unlock(at: receivedAt, mode: detected), to: &state, calendar: calendar)
                 }
             }
             if state.detectHalfDaysFromCalendar, case let .confirmed(mode) = observation {
@@ -208,8 +256,7 @@ final class AppModel: ObservableObject {
     func saveManual(_ date: Date, selectedMode: WorkdayMode?) -> Bool {
         refresh()
         return commit {
-            try Attendance.setManual(in: &$0, at: date, now: now, calendar: calendar,
-                                     selectedMode: selectedMode, calendarMode: detectedModeToday)
+            _ = try attendance.apply(.manual(at: date, now: now, selectedMode: selectedMode, calendarMode: detectedModeToday), to: &$0, calendar: calendar)
         }
     }
 
@@ -222,15 +269,14 @@ final class AppModel: ObservableObject {
             calendarModeDay = nil
             calendarHalfDayMessage = nil
             var updated = state
-            if Attendance.refreshAutomaticMode(in: &updated, now: now, calendar: calendar,
-                                                calendarMode: nil) {
+            if (try? attendance.apply(.refreshMode(now: now, mode: nil), to: &updated, calendar: calendar)) == true {
                 commit { $0 = updated }
             }
             return
         }
         Task {
             do {
-                try await halfDayCalendar.requestAccess()
+                try await featureRouter.requestHalfDayAccess()
                 guard requestGeneration == calendarDetectionRequestGeneration else { return }
                 guard commit({ $0.detectHalfDaysFromCalendar = true }) else { return }
                 await refreshCalendarHalfDay(force: true)
@@ -249,26 +295,33 @@ final class AppModel: ObservableObject {
         let checkedAt = Date()
         if !force, let lastCalendarCheckAt, checkedAt.timeIntervalSince(lastCalendarCheckAt) < 300 { return }
         lastCalendarCheckAt = checkedAt
+        halfDayRefreshGeneration += 1
+        let request = halfDayRefreshGeneration
+        let detection = calendarDetectionRequestGeneration
         do {
-            let mode = try await halfDayCalendar.detect(on: checkedAt, timeZone: calendar.timeZone)
-            guard state.detectHalfDaysFromCalendar else { return }
+            let mode = HalfDayRecognition.mode(from: try await featureRouter.halfDayTitles(on: checkedAt, timeZone: calendar.timeZone))
+            guard state.detectHalfDaysFromCalendar, request == halfDayRefreshGeneration,
+                  detection == calendarDetectionRequestGeneration else { return }
             applyCalendarHalfDay(mode, checkedAt: checkedAt)
+        } catch is CancellationError {
         } catch {
             // A failed read is not evidence that the calendar event disappeared.
             // Keep the last successful result until a confirmed fresh read.
-            calendarHalfDayMessage = error.localizedDescription
+            if request == halfDayRefreshGeneration, detection == calendarDetectionRequestGeneration {
+                calendarHalfDayMessage = error.localizedDescription
+            }
         }
     }
 
     private func applyCalendarHalfDay(_ mode: WorkdayMode?, checkedAt: Date) {
-        let day = Attendance.dayKey(checkedAt, calendar: calendar)
-        guard day == Attendance.dayKey(Date(), calendar: calendar) else { return }
+        let day = attendance.dayKey(checkedAt, calendar: calendar)
+        guard day == attendance.dayKey(Date(), calendar: calendar) else { return }
         calendarModeDay = day
         calendarHalfDayMode = mode
         let conflictsWithRecordedTime = mode.flatMap { selected in
             state.arrivals[day].map { arrival in
                 arrival.modeSource == .automatic &&
-                    !Attendance.isAllowed(arrival.time, for: selected, calendar: calendar)
+                    !attendance.isAllowed(arrival.time, for: selected, calendar: calendar)
             }
         } ?? false
         if conflictsWithRecordedTime {
@@ -278,22 +331,19 @@ final class AppModel: ObservableObject {
                 ?? "명확한 오전·오후 반차 일정이 없어요. 출근 시각으로 판단합니다."
         }
         var updated = state
-        if Attendance.refreshAutomaticMode(in: &updated, now: checkedAt,
-                                            calendar: calendar, calendarMode: mode) {
+        if (try? attendance.apply(.refreshMode(now: checkedAt, mode: mode), to: &updated, calendar: calendar)) == true {
             commit { $0 = updated }
         }
     }
 
     func skipToday() {
         refresh()
-        commit { Attendance.skipToday(in: &$0, now: now, calendar: calendar) }
+        commit { _ = try attendance.apply(.skip(now: now), to: &$0, calendar: calendar) }
     }
 
     func updateSettings(work: Int, rest: Int) {
         commit {
-            $0.settings.workMinutes = work
-            $0.settings.breakMinutes = rest
-            guard $0.settings.isValid else { throw AttendanceError.invalidSettings }
+            _ = try attendance.apply(.settings(work: work, rest: rest), to: &$0, calendar: calendar)
         }
     }
 

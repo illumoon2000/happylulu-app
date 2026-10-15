@@ -22,7 +22,7 @@ actor HalfDayCalendarReader {
         guard granted else { throw CalendarReadError.accessDenied }
     }
 
-    func detect(on date: Date, timeZone: TimeZone) throws -> WorkdayMode? {
+    func titles(on date: Date, timeZone: TimeZone) throws -> [String] {
         let status = EKEventStore.authorizationStatus(for: .event)
         if #available(macOS 14.0, *) {
             guard status == .fullAccess else { throw CalendarReadError.accessDenied }
@@ -32,11 +32,15 @@ actor HalfDayCalendarReader {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = timeZone
         let start = calendar.startOfDay(for: date)
-        guard let end = calendar.date(byAdding: .day, value: 1, to: start) else { return nil }
+        guard let end = calendar.date(byAdding: .day, value: 1, to: start) else { return [] }
         let calendars = store.calendars(for: .event)
-        guard !calendars.isEmpty else { return nil }
+        guard !calendars.isEmpty else { return [] }
         let predicate = store.predicateForEvents(withStart: start, end: end, calendars: calendars)
-        return HalfDayRecognition.mode(from: store.events(matching: predicate).compactMap(\.title))
+        return store.events(matching: predicate).compactMap(\.title)
+    }
+
+    func detect(on date: Date, timeZone: TimeZone) throws -> WorkdayMode? {
+        HalfDayRecognition.mode(from: try titles(on: date, timeZone: timeZone))
     }
 
     enum CalendarReadError: LocalizedError {
