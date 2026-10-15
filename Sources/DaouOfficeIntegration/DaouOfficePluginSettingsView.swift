@@ -3,11 +3,13 @@ import AppKit
 import AppPluginCore
 import AppPluginHost
 
+private typealias DaouOfficeViewState<Value> = SwiftUI.State<Value>
+
 struct DaouOfficePluginSettingsView: View {
     @ObservedObject var model: DaouOfficePluginModel
     var localize: PluginLocalizer = { korean, _ in korean }
     private func L(_ korean: String, _ english: String) -> String { localize(korean, english) }
-    @State private var showingVacations = true
+    @DaouOfficeViewState private var showingVacations = true
     @FocusState private var captchaFocused: Bool
 
     var body: some View {
