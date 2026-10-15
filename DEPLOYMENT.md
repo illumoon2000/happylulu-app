@@ -4,11 +4,13 @@
 
 ## Mac 로컬 준비
 
-`Resources/Info.plist`의 버전·증가한 build, RELEASE-NOTES.md, LICENSE, THIRD_PARTY_NOTICES.md를 검토·커밋한 깨끗한 checkout에서 실행합니다. 현재 후보는 1.5.14 build30입니다.
+`Resources/Info.plist`의 버전·증가한 build, RELEASE-NOTES.md, LICENSE, THIRD_PARTY_NOTICES.md를 검토·커밋한 깨끗한 checkout에서 실행합니다. 현재 후보는 **Mac 1.5.15 build31(배포 준비·미게시)**입니다. 공개 Mac 1.5.14 build30 자산은 보존하며 Windows는 1.5.13을 유지합니다. 이번 준비에서는 사용자 앱을 교체하거나 서명·Release·feed 게시를 수행하지 않습니다.
+
+아래 서명·게시 명령은 승인된 후속 배포 단계용이며 소스 준비 PR에서 실행하지 않습니다.
 
 ```sh
 bash scripts/prepare-release.sh
-python3 scripts/release_delivery.py check dist/releases/1.5.14-build30
+python3 scripts/release_delivery.py check dist/releases/1.5.15-build31
 ```
 
 준비 단계는 고정 코드 서명 검사, arm64/x86_64 Universal 빌드, ZIP·DMG 생성, 로컬 Sparkle feed 서명, 번들·ZIP·DMG 일치 검사와 Ed25519 서명 검사를 수행합니다. 키체인 승인창은 운영자가 직접 승인합니다. ad-hoc 서명은 배포 준비 검사에서 거부합니다. Developer ID·공증과 외부 Mac 설치 시험은 별도입니다.
@@ -17,23 +19,25 @@ python3 scripts/release_delivery.py check dist/releases/1.5.14-build30
 
 ```sh
 python3 scripts/check-update-feed-generation.py \
-  dist/releases/1.5.14-build30/HappyLulu-1.5.14-universal.zip
+  dist/releases/1.5.15-build31/HappyLulu-1.5.15-universal.zip
 ```
 
 `generate_appcast --disable-signing-warning`은 노트에 붙이는 안내 주석만 억제합니다. archive·노트·feed 서명은 유지하며, 서명 후 노트를 원문으로 되돌리지 않습니다.
 
 `dist/releases/<version>-build<build>/`에 앱, ZIP, DMG, 노트, 라이선스, `updates/appcast.xml`, 서명된 노트, `build-source.json`, `release.json`, `SHA256SUMS.txt`를 보관합니다. 빌드 시작 때 기록한 소스 commit과 clean 상태가 현재 checkout과 일치해야 배포 준비를 통과합니다. manifest는 버전, build, feed, 공개키와 코드 서명 requirement도 연결합니다. 체크섬은 업로드할 모든 파일을 열거합니다. 경로 이탈·symlink·중복/누락 체크섬·변조·다른 URL/버전의 feed는 거부합니다. 서명 후 산출물을 수정하거나 같은 build를 재사용하지 않습니다. 기존 준비 폴더가 있으면 자동 덮어쓰지 않습니다.
 
+실제 설치 시험과 아래의 명시적 설치 없는 공개 중 어떤 경로를 사용할지는 별도 결정합니다. 경로가 결정되기 전에는 설치 완료를 기록하거나 공개하지 않습니다. 최종 버전·노트 변경이 반영된 검토 소스 commit의 CI를 확인한 뒤 패키징합니다.
+
 ## 검증된 후보를 draft로 올리기
 
 소스 commit이 GitHub에 존재하고 실제 원격 쓰기가 승인된 뒤 실행합니다. `--dry-run`은 로컬 검사와 명령 미리보기만 수행합니다.
 
 ```sh
-python3 scripts/release_delivery.py draft dist/releases/1.5.14-build30 --dry-run
-python3 scripts/release_delivery.py draft dist/releases/1.5.14-build30
+python3 scripts/release_delivery.py draft dist/releases/1.5.15-build31 --dry-run
+python3 scripts/release_delivery.py draft dist/releases/1.5.15-build31
 ```
 
-`macos-v1.5.14-build30` draft를 명시적인 소스 SHA에서 만들고 ZIP·DMG·노트·라이선스·체크섬·manifest·서명 appcast를 올립니다. 이미 있는 lightweight/annotated 태그는 실제 commit까지 따라가 확인하며 다른 commit이면 draft 생성과 승격 전에 중단합니다. 업로드 후 다시 내려받아 모든 바이트를 로컬 후보와 대조합니다. 기존 태그의 Release는 덮어쓰지 않습니다. 실패한 draft는 원인을 확인한 후 운영자가 처리하며 자동 삭제하지 않습니다.
+`macos-v1.5.15-build31` draft를 명시적인 소스 SHA에서 만들고 ZIP·DMG·노트·라이선스·체크섬·manifest·서명 appcast를 올립니다. 이미 있는 lightweight/annotated 태그는 실제 commit까지 따라가 확인하며 다른 commit이면 draft 생성과 승격 전에 중단합니다. 업로드 후 다시 내려받아 모든 바이트를 로컬 후보와 대조합니다. 기존 태그의 Release는 덮어쓰지 않습니다. 실패한 draft는 원인을 확인한 후 운영자가 처리하며 자동 삭제하지 않습니다.
 
 ## 실제 업데이트 시험과 명시적 승격
 
@@ -59,11 +63,11 @@ draft 준비만으로 승격하지 않습니다. 승인된 실제 HappyLulu 업�
 ```
 
 ```sh
-python3 scripts/release_delivery.py promote dist/releases/1.5.14-build30 \
+python3 scripts/release_delivery.py promote dist/releases/1.5.15-build31 \
   --permission-evidence /absolute/local/permission-evidence.json --dry-run
-python3 scripts/release_delivery.py promote dist/releases/1.5.14-build30 \
+python3 scripts/release_delivery.py promote dist/releases/1.5.15-build31 \
   --permission-evidence /absolute/local/permission-evidence.json
-python3 scripts/release_delivery.py readback dist/releases/1.5.14-build30
+python3 scripts/release_delivery.py readback dist/releases/1.5.15-build31
 ```
 
 승격은 후보와 증거를 대조하고 draft 자산을 재다운로드 검증한 뒤 버전 Release를 공개합니다. 이어 고정 `macos-update-feed` prerelease의 appcast를 서명 바이트 그대로 게시하고 Latest 표시를 끕니다. 이전 feed는 서명을 확인하고 로컬 `receipts/`에 보존하며 build 역행·같은 build의 다른 feed는 거부합니다. GitHub의 immutable Releases 정책이 켜져 있으면 고정 feed를 갱신할 수 없으므로 사전에 이 운영 방식과 정책을 조정해야 합니다.
