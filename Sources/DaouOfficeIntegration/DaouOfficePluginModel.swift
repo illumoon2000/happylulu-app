@@ -112,7 +112,7 @@ final class DaouOfficePluginModel: ObservableObject {
     func setEnableRequested(_ value: Bool) {
         guard registered else { return }
         enableRequested = value
-        guard !value else { return }
+        if value { loadSavedPassword(); return }
         stopRefresh()
         password = ""; enabled = false; snapshot = nil; failure = nil
         if var config = configuration {

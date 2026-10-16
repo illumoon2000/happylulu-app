@@ -14,7 +14,7 @@ struct PanelView: View {
     @PanelState private var editing = false
     @PanelState private var clockEdit: ArrivalClockEdit?
     @PanelState private var editDay = ""
-    @FocusState private var focusedDigit: Int?
+    @PanelState private var focusedDigit: Int?
     @PanelState private var saveGeneration = 0
     @PanelState private var selectingType = false
     let onOpenHistory: () -> Void
@@ -137,17 +137,16 @@ struct PanelView: View {
                 if index == 2 { Text(":").frame(width: 9) }
                 VStack(spacing: 0) {
                     digitButton(at: index, delta: 1, symbol: "plus")
-                    TextField("0", text: Binding(
+                    ArrivalClockDigitField(text: Binding(
                         get: { clockEdit?.digits[index] ?? "" },
-                        set: { value in clockEdit?.replaceDigit(at: index, with: value) }))
-                        .textFieldStyle(.plain).multilineTextAlignment(.center)
+                        set: { value in clockEdit?.replaceDigit(at: index, with: value) }),
+                        focusedDigit: $focusedDigit, index: index, color: NSColor(accent), label: digitLabel(index),
+                        onPaste: { clockEdit?.replaceDigit(at: index, with: $0) },
+                        onSubmit: { _ = saveClock() },
+                        onCancel: { editing = false; focusedDigit = nil; model.errorMessage = nil })
                         .frame(width: 20, height: 34)
-                        .focused($focusedDigit, equals: index)
                         .background(focusedDigit == index ? accent.opacity(0.12) : .clear,
                                     in: RoundedRectangle(cornerRadius: 4))
-                        .accessibilityLabel(digitLabel(index))
-                        .onSubmit { _ = saveClock() }
-                        .onExitCommand { editing = false; focusedDigit = nil; model.errorMessage = nil }
                     digitButton(at: index, delta: -1, symbol: "minus")
                 }.frame(width: 20)
             }

@@ -64,6 +64,9 @@ jobs:
           bash scripts/check-calendar-diagnostics.sh
           bash scripts/check-calendar-runtime.sh
           bash scripts/check-automatic-install.sh
+          bash scripts/check-runtime-profile.sh
+          bash scripts/check-clock-paste.sh
+          bash scripts/check-appearance-model.sh
           bash scripts/check-plugin-architecture.sh
           bash scripts/check-plugin-isolation.sh
       - name: Check optional Daouoffice integration

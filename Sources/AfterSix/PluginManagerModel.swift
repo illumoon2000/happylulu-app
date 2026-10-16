@@ -174,7 +174,8 @@ final class PluginManagerModel: ObservableObject {
                 if started && externalIntegrationsAllowed { entry?.controller.start() }
                 router.setEnabled(entry?.controller.enabled == true && externalIntegrationsAllowed, for: id)
                 if id == "mac-calendar", externalIntegrationsAllowed {
-                    for feature in [AppFeature.calendar, .halfDay] where router.selectedID(for: feature) == router.defaultID {
+                    for feature in [AppFeature.calendar, .halfDay] where router.selectedID(for: feature) == router.defaultID
+                        && savedRoutes[feature] == nil {
                         try? router.select(id, for: feature)
                     }
                 }
@@ -198,7 +199,7 @@ final class PluginManagerModel: ObservableObject {
                 for (feature, source) in savedRoutes where source == id { try? router.select(id, for: feature) }
             }
             if active, id == "mac-calendar" {
-                for feature in [AppFeature.calendar, .halfDay] where savedRoutes[feature] == nil || savedRoutes[feature] == router.defaultID {
+                for feature in [AppFeature.calendar, .halfDay] where savedRoutes[feature] == nil {
                     try? router.select(id, for: feature)
                 }
             }
@@ -229,7 +230,10 @@ final class PluginManagerModel: ObservableObject {
         guard let entry = registrations.first(where: { $0.id == id }) else { return }
         entry.controller.stop(); registry.unregister(id); router.unregister(id)
         subscriptions[id] = nil; registrations.removeAll { $0.id == id }
-        if saveRoutes { persistRoutes() }
+        if saveRoutes {
+            savedRoutes = savedRoutes.filter { $0.value != id }
+            persistRoutes()
+        }
         revision += 1
     }
     func start() {
@@ -259,8 +263,10 @@ final class PluginManagerModel: ObservableObject {
         let old = router.selectedID(for: feature)
         do {
             try router.select(id, for: feature)
-            try routingStore.save(router.selection)
-            savedRoutes = router.selection; message = nil
+            var desired = savedRoutes
+            desired[feature] = id
+            try routingStore.save(desired)
+            savedRoutes = desired; message = nil
         } catch {
             try? router.select(old, for: feature)
             message = "기능 연결을 저장하지 못했습니다. 연결 상태와 설정 파일 접근 권한을 확인해 주세요."
@@ -272,12 +278,20 @@ final class PluginManagerModel: ObservableObject {
         for entry in registrations {
             router.setEnabled(entry.controller.enabled && (!catalogConfigured || (isEnabled(entry.id) && externalIntegrationsAllowed)), for: entry.id)
         }
+        for (feature, source) in savedRoutes where router.isEnabled(source) {
+            try? router.select(source, for: feature)
+        }
         if before != router.revision { persistRoutes() }
         revision += 1
     }
     private func persistRoutes() {
         guard writable else { return }
-        do { try routingStore.save(router.selection); savedRoutes = router.selection }
+        do {
+            // Runtime fallback is transient; only an explicit selection forgets a route.
+            var desired = savedRoutes
+            for (feature, source) in router.selection where desired[feature] == nil { desired[feature] = source }
+            try routingStore.save(desired); savedRoutes = desired
+        }
         catch { message = "기능 연결을 저장하지 못했습니다. 이번 실행에서는 기본 연결로 돌아갑니다." }
     }
     func adapterName(_ id: String) -> String {

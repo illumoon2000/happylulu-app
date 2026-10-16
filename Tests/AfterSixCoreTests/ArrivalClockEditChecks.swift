@@ -31,6 +31,19 @@ func checkArrivalClockEdit() {
     expectEqual(fresh.text, "10:00")
     fresh.replaceDigit(at: 0, with: "12") // Insert 2 after the existing 1.
     expectEqual(fresh.text, "20:00")
+    for index in 0..<4 {
+        for (pasted, expected) in [("1234", "12:34"), ("12:34", "12:34"), ("1231", "12:31"), ("12:31", "12:31")] {
+            var paste = ArrivalClockEdit(existingTime: now, now: now, timeZone: zone)
+            paste.replaceDigit(at: index, with: pasted)
+            expectEqual(paste.text, expected)
+        }
+        for insertBefore in [true, false] {
+            var typing = ArrivalClockEdit(existingTime: now, now: now, timeZone: zone)
+            let oldDigit = typing.digits[index]
+            typing.replaceDigit(at: index, with: insertBefore ? "5" + oldDigit : oldDigit + "5")
+            expectEqual(typing.digits[index], "5")
+        }
+    }
     fresh.replaceDigit(at: 0, with: "0000")
     fresh.replaceDigit(at: 2, with: "9")
     expectEqual(fresh.text, "00:90") // Invalid direct input remains visible for save validation.
@@ -38,5 +51,5 @@ func checkArrivalClockEdit() {
     expectEqual(fresh.text, "00:0")
     fresh.replaceDigit(at: 2, with: "x")
     expectEqual(fresh.text, "00:0")
-    print("PASS arrival clock edit: current default needs save, existing unchanged, four digit edits and bounded adjustments")
+    print("PASS arrival clock edit: current default needs save, existing unchanged, four digit edits, raw full-clock paste and bounded adjustments")
 }

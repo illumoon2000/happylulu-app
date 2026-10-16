@@ -63,6 +63,7 @@ final class CalendarSyncModel: ObservableObject {
 
     private lazy var calendarAccess: any CalendarSyncAccess = SystemCalendarAccess()
     private let store: SyncStore?
+    private let storeInitializationError: Error?
     private var timer: Timer?
     private var networkMonitor: NWPathMonitor?
     private let networkQueue = DispatchQueue(label: "HappyLulu.CalendarNetwork")
@@ -87,11 +88,12 @@ final class CalendarSyncModel: ObservableObject {
         return state.canBeginSystemSync(reviewedPairKey: reviewedPairKey)
     }
 
-    init(runtimeAllowed: Bool = true) {
+    init(runtimeAllowed: Bool = true, storeURL: URL = SyncStore.standardURL) {
         self.runtimeAllowed = runtimeAllowed
-        do { store = try SyncStore() }
+        do { store = try SyncStore(url: storeURL); storeInitializationError = nil }
         catch {
             store = nil
+            storeInitializationError = error
             message = error.localizedDescription
         }
         observeApplicationActivation()
@@ -100,6 +102,7 @@ final class CalendarSyncModel: ObservableObject {
     init(calendarAccess: any CalendarSyncAccess, store: SyncStore? = nil, runtimeAllowed: Bool = true) {
         self.runtimeAllowed = runtimeAllowed
         self.store = store
+        self.storeInitializationError = nil
         self.calendarAccess = calendarAccess
         observeApplicationActivation()
     }
@@ -128,6 +131,7 @@ final class CalendarSyncModel: ObservableObject {
         }
     }
     func legacyConfigured() async throws -> Bool {
+        if let storeInitializationError { throw storeInitializationError }
         guard let store else { return false }
         let state = try await store.load()
         return state.configuration.hasSelectedPair || state.configuration.enabled || state.lastSuccessAt != nil

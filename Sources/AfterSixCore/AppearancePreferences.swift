@@ -102,6 +102,7 @@ public final class AppearanceStore {
     public private(set) var isReadOnly = false
     public static let maximumImageBytes = 20 * 1024 * 1024
     private let fileManager = FileManager.default
+    private var importedImageFilenames = Set<String>()
 
     public init(rootDirectory: URL, bundleIdentifier: String) {
         // Bundle identifiers are application metadata; encode them as one path component.
@@ -132,8 +133,30 @@ public final class AppearanceStore {
         guard !isReadOnly else { throw AppearanceError.readOnly }
         try validate(value)
         let bytes = try JSONEncoder().encode(value)
+        let previous = (try? Data(contentsOf: preferencesURL)).flatMap {
+            try? JSONDecoder().decode(AppearancePreferences.self, from: $0)
+        }
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
         try bytes.write(to: preferencesURL, options: .atomic)
+        var superseded = importedImageFilenames
+        if let filename = previous?.customImageFilename { superseded.insert(filename) }
+        for filename in superseded where filename != value.customImageFilename {
+            removeSupersededImage(filename)
+        }
+    }
+
+    private func removeSupersededImage(_ filename: String) {
+        // Only known references with the importer's UUID name are eligible; never sweep the directory.
+        let name = (filename as NSString).deletingPathExtension
+        guard let uuid = UUID(uuidString: name), uuid.uuidString == name,
+              ["png", "jpg"].contains((filename as NSString).pathExtension),
+              let url = try? imageURL(filename),
+              let values = try? url.resourceValues(forKeys: [.isSymbolicLinkKey, .isRegularFileKey]),
+              values.isSymbolicLink != true, values.isRegularFile == true,
+              let folder = try? directory.resourceValues(forKeys: [.isSymbolicLinkKey]), folder.isSymbolicLink != true,
+              let parent = try? directory.deletingLastPathComponent().resourceValues(forKeys: [.isSymbolicLinkKey]),
+              parent.isSymbolicLink != true else { return }
+        if (try? fileManager.removeItem(at: url)) != nil { importedImageFilenames.remove(filename) }
     }
 
     public static func validateFilename(_ name: String) throws {
@@ -176,6 +199,7 @@ public final class AppearanceStore {
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
         let filename = UUID().uuidString + "." + ext
         try bytes.write(to: imageURL(filename), options: .atomic)
+        importedImageFilenames.insert(filename)
         return filename
     }
 }

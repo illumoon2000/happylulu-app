@@ -8,18 +8,25 @@ import AfterSixCore
 import MacLaunchSupport
 import AppPluginCore
 
+let runtimeProfile = AppRuntimeProfile(bundleIdentifier: Bundle.main.bundleIdentifier,
+    applicationSupport: FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0])
+
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var statusItem: NSStatusItem!
     private let popover = NSPopover()
-    private let calendarSync = CalendarSyncModel(runtimeAllowed: false)
+    private let calendarSync = CalendarSyncModel(runtimeAllowed: false, storeURL: runtimeProfile.syncURL)
     private let pluginPresentations = PluginSettingsPresentationRegistry()
     private lazy var plugins: PluginManagerModel = {
-        let manager = PluginManagerModel(defaultAdapter: DefaultFeatureAdapter(), catalogStore: .standard)
-        manager.configureCatalog(sync: calendarSync, presentations: pluginPresentations)
+        let manager = PluginManagerModel(defaultAdapter: DefaultFeatureAdapter(),
+            routingStore: FeatureRoutingStore(url: runtimeProfile.routingURL),
+            catalogStore: PluginCatalogStore(url: runtimeProfile.catalogURL))
+        manager.configureCatalog(sync: calendarSync, presentations: pluginPresentations,
+            allowsExternalIntegrations: runtimeProfile.allowsExternalIntegrations)
         return manager
     }()
-    private lazy var model = AppModel(featureRouter: plugins.router)
+    private lazy var model = AppModel(store: StateStore(url: runtimeProfile.stateURL), featureRouter: plugins.router,
+        allowsLoginItemChanges: runtimeProfile.allowsLoginItemChanges)
     private lazy var featureCalendar = FeatureCalendarModel(router: plugins.router)
     private let updater = AppUpdater()
     private let settingsNavigation = SettingsNavigation()
@@ -71,7 +78,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let firstLaunch = !model.state.didOfferLoginItem
         Task { @MainActor [weak self] in
             guard let self else { return }
-            if self.plugins.needsLegacyMigration {
+            if runtimeProfile.allowsExternalIntegrations && self.plugins.needsLegacyMigration {
                 do {
                     let calendarConfigured = try await self.calendarSync.legacyConfigured()
                     self.plugins.migrateLegacy(calendarConfigured: calendarConfigured,
@@ -80,8 +87,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 } catch { self.plugins.reportMigrationFailure() }
             }
             self.model.observeFeatures(self.plugins)
-            self.model.start(loginObservedAt: self.loginObservedAt)
-            self.plugins.start()
+            if runtimeProfile.allowsAutomaticActivity {
+                self.model.start(loginObservedAt: self.loginObservedAt)
+                self.plugins.start()
+            }
         }
         updater.canInstallNow = { [weak self] in
             guard let self else { return false }
@@ -89,7 +98,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 && !NSApplication.shared.isActive
                 && !NSApplication.shared.windows.contains { $0.isVisible && $0.level == .normal }
         }
-        updater.start()
+        if runtimeProfile.allowsAutomaticActivity { updater.start() }
         updateTitle()
         if firstLaunch { togglePanel() }
         if CommandLine.arguments.contains("--calendar") { openSettings(section: .calendar) }
@@ -165,10 +174,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 }
 
+if CommandLine.arguments.contains("--runtime-profile") {
+    print("development=\(runtimeProfile.isDevelopment)")
+    print("externalIntegrations=\(runtimeProfile.allowsExternalIntegrations)")
+    print("loginItemChanges=\(runtimeProfile.allowsLoginItemChanges)")
+    print("automaticActivity=\(runtimeProfile.allowsAutomaticActivity)")
+    print("state=\(runtimeProfile.stateURL.path)")
+    print("routing=\(runtimeProfile.routingURL.path)")
+    print("catalog=\(runtimeProfile.catalogURL.path)")
+    print("sync=\(runtimeProfile.syncURL.path)")
+    exit(0)
+}
+
 let calendarRuntimeFlags = CommandLine.arguments.filter {
     ["--calendar-preview", "--calendar-resume", "--calendar-runtime-check"].contains($0)
 }
 if !calendarRuntimeFlags.isEmpty {
+    guard runtimeProfile.allowsExternalIntegrations else { exit(64) }
     guard calendarRuntimeFlags.count == 1 else { exit(64) }
     let mode: CalendarSyncRuntimeChecks.Mode
     switch calendarRuntimeFlags[0] {
@@ -194,6 +216,7 @@ if !calendarRuntimeFlags.isEmpty {
 }
 
 if CommandLine.arguments.contains("--calendar-diagnostics") {
+    guard runtimeProfile.allowsExternalIntegrations else { exit(64) }
     // Runs before app models, timers, updater and single-instance activation.
     // Reads calendar diagnostics without requesting permission or writing events.
     do {
@@ -208,7 +231,7 @@ if CommandLine.arguments.contains("--calendar-diagnostics") {
 if CommandLine.arguments.contains("--status") {
     // Read-only diagnostics; no notification injection or attendance mutation.
     do {
-        let state = try StateStore.standard.load()
+        let state = try StateStore(url: runtimeProfile.stateURL).load()
         let record = Attendance.today(in: state, now: Date(), calendar: .current)
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "development"
         print("app=HappyLulu version=\(version)")

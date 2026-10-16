@@ -247,6 +247,96 @@ private func checkOptionalCatalog(root: URL) async throws {
 }
 
 @MainActor
+private enum RetainedDaouModule: PluginModule {
+    static let id = "daouoffice"
+    static func register(in context: PluginHostContext) throws {}
+}
+
+@MainActor
+private func checkDisabledRoutesAndMigration(root: URL) async throws {
+    let routing = FeatureRoutingStore(url: root.appendingPathComponent("retained-routes.json"))
+    let catalog = PluginCatalogStore(url: root.appendingPathComponent("retained-catalog.json"))
+    let sync = CalendarSyncModel(calendarAccess: ProbeCalendarAccess(), runtimeAllowed: false)
+    func makeManager() throws -> PluginManagerModel {
+        let manager = PluginManagerModel(defaultAdapter: DefaultFeatureAdapter(), routingStore: routing, catalogStore: catalog)
+        let controller = ProbeController("daouoffice")
+        try manager.register(PluginRegistration(controller: controller, adapter: ProbeAdapter("daouoffice"),
+            symbol: "calendar", summary: "fixture", setEnabled: { controller.enabled = $0 }))
+        manager.configureCatalog(sync: sync, presentations: PluginSettingsPresentationRegistry(), modules: [RetainedDaouModule.self])
+        return manager
+    }
+    // A preinstalled optional provider; no real module or credential is constructed.
+    try catalog.save(PluginCatalogState(installed: ["daouoffice":true]))
+    let manager = try makeManager()
+    // Availability is tied to shipped module metadata; fixture uses Daou's module ID.
+    for feature in AppFeature.allCases { manager.select("daouoffice", for: feature) }
+    manager.setEnabled("daouoffice", false)
+    for _ in 0..<20 { await Task.yield() }
+    require(AppFeature.allCases.allSatisfy { manager.router.selectedID(for: $0) == manager.router.defaultID }, "Disabled provider remained active")
+    let desired = try routing.load()
+    require(AppFeature.allCases.allSatisfy { desired[$0] == "daouoffice" }, "Disabled desired routes were overwritten")
+    manager.select(manager.router.defaultID, for: .leave)
+    let restarted = try makeManager()
+    restarted.setEnabled("daouoffice", true)
+    for _ in 0..<20 { await Task.yield() }
+    require(restarted.router.selectedID(for: .calendar) == "daouoffice" && restarted.router.selectedID(for: .halfDay) == "daouoffice"
+        && restarted.router.selectedID(for: .leave) == restarted.router.defaultID, "Restart/re-enable lost intended routes or explicit disconnect")
+
+    let rejected = try makeManager()
+    rejected.install("mac-calendar")
+    rejected.setEnabled("mac-calendar", true)
+    rejected.select("daouoffice", for:.calendar)
+    rejected.setEnabled("daouoffice", false)
+    for _ in 0..<20 { await Task.yield() }
+    let backup = root.appendingPathComponent("routes-before-save-failure.json")
+    try FileManager.default.moveItem(at:routing.url!, to:backup)
+    try FileManager.default.createDirectory(at:routing.url!, withIntermediateDirectories:false)
+    rejected.select("mac-calendar", for:.calendar)
+    require(rejected.message != nil, "Fixture did not reject route save")
+    try FileManager.default.removeItem(at:routing.url!)
+    try FileManager.default.moveItem(at:backup, to:routing.url!)
+    rejected.install("leave-detection")
+    rejected.setEnabled("leave-detection", true)
+    rejected.setEnabled("daouoffice", true)
+    require(rejected.router.selectedID(for:.calendar) == "daouoffice", "Rejected route save later overwrote disabled desired connection")
+
+    let macRoutes = FeatureRoutingStore(url:root.appendingPathComponent("explicit-core-routes.json"))
+    let macCatalog = PluginCatalogStore(url:root.appendingPathComponent("explicit-core-catalog.json"))
+    try macCatalog.save(PluginCatalogState(installed:["mac-calendar":true]))
+    func makeMacManager() -> PluginManagerModel {
+        let value = PluginManagerModel(defaultAdapter:DefaultFeatureAdapter(), routingStore:macRoutes, catalogStore:macCatalog)
+        value.configureCatalog(sync:sync, presentations:PluginSettingsPresentationRegistry(), modules:[])
+        return value
+    }
+    let macManager = makeMacManager()
+    macManager.select(macManager.router.defaultID, for:.calendar)
+    macManager.select(macManager.router.defaultID, for:.halfDay)
+    macManager.setEnabled("mac-calendar", false)
+    macManager.setEnabled("mac-calendar", true)
+    require(macManager.router.selectedID(for:.calendar) == macManager.router.defaultID && macManager.router.selectedID(for:.halfDay) == macManager.router.defaultID,
+        "Mac re-enable erased explicit core selection")
+    let macRestart = makeMacManager()
+    require(macRestart.router.selectedID(for:.calendar) == macRestart.router.defaultID && macRestart.router.selectedID(for:.halfDay) == macRestart.router.defaultID,
+        "Mac restart erased explicit core selection")
+
+    let blocked = root.appendingPathComponent("sync-store-blocker")
+    let bytes = Data("preserved blocker".utf8)
+    try bytes.write(to: blocked)
+    let failingSync = CalendarSyncModel(runtimeAllowed: false, storeURL: blocked.appendingPathComponent("sync.sqlite"))
+    do { _ = try await failingSync.legacyConfigured(); fatalError("Store initialization failure became unconfigured") }
+    catch {}
+    let retryCatalog = PluginCatalogStore(url: root.appendingPathComponent("retry-catalog.json"))
+    let retryManager = PluginManagerModel(defaultAdapter: DefaultFeatureAdapter(), routingStore: FeatureRoutingStore(url:nil), catalogStore:retryCatalog)
+    retryManager.reportMigrationFailure()
+    require(!retryManager.canChangeCatalog && !FileManager.default.fileExists(atPath:retryCatalog.url!.path), "Failed migration wrote completion")
+    let preserved = try Data(contentsOf:blocked)
+    require(preserved == bytes, "Failed store initialization changed original")
+    let nextLaunch = PluginManagerModel(defaultAdapter: DefaultFeatureAdapter(), routingStore: FeatureRoutingStore(url:nil), catalogStore:retryCatalog)
+    require(nextLaunch.needsLegacyMigration, "Migration failure was not retryable")
+    print("PASS disabled route restart/restoration and migration initialization failure")
+}
+
+@MainActor
 private func checkUnreadableCatalogPreservesAttendance(root: URL) async throws {
     for migrationFailed in [false, true] {
         let suffix = migrationFailed ? "migration-failed" : "catalog-corrupt"
@@ -353,6 +443,7 @@ struct PluginArchitectureChecks {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
         try await checkOptionalCatalog(root: root)
+        try await checkDisabledRoutesAndMigration(root: root)
         try await checkUnreadableCatalogPreservesAttendance(root: root)
         try await checkLeaveGateInvalidation(root: root)
         let catalogURL = root.appendingPathComponent("catalog.json")
@@ -542,7 +633,10 @@ struct PluginArchitectureChecks {
         for _ in 0..<100 { if manager.router.selectedID(for: .calendar) == "builtin" { break }; await Task.yield() }
         require(manager.router.selectedID(for: .calendar) == "builtin" && manager.router.selectedID(for: .leave) == "beta", "Disabling a plugin changed unrelated bindings")
         let disabledRoutes = try store.load()
-        require(disabledRoutes[.calendar] == nil && disabledRoutes[.leave] == "beta", "Default fallback did not persist")
+        require(disabledRoutes[.calendar] == "alpha" && disabledRoutes[.leave] == "beta", "Disabling erased the desired connection")
+        first.enabled = true
+        for _ in 0..<100 { if manager.router.selectedID(for: .calendar) == "alpha" { break }; await Task.yield() }
+        require(manager.router.selectedID(for: .calendar) == "alpha", "Re-enabling did not restore desired route")
         manager.unregister("alpha")
         require(first.stops == 1 && manager.registrations.count == 1, "Unregistering a plugin did not stop only its own lifecycle")
         manager.stop(); require(second.stops == 1, "Shutdown did not stop registered plugins")

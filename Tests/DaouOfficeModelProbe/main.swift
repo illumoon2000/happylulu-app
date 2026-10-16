@@ -9,7 +9,9 @@ func require(_ condition: @autoclosure () -> Bool, _ message: String) { precondi
 final class MemorySecrets: PluginSecretStore, @unchecked Sendable {
     private let lock = NSLock()
     private var values: [String: String] = [:]
-    func load(for key: String) throws -> String? { lock.withLock { values[key] } }
+    private var loads = 0
+    var loadCount: Int { lock.withLock { loads } }
+    func load(for key: String) throws -> String? { lock.withLock { loads += 1; return values[key] } }
     func save(_ password: String, for key: String) throws { lock.withLock { values[key] = password } }
     func remove(for key: String) throws { lock.withLock { values[key] = nil } }
 }
@@ -554,8 +556,18 @@ func checks() async throws {
     require(!saved.enabled, "Disabled preference did not persist")
     for _ in 0..<10 { await Task.yield() }
     require(model.failure == nil && model.nextRunAt == nil, "Cancelled fetch overwrote disabled state")
-    let reopened = DaouOfficePluginModel(store: store, secrets: secrets)
+    let loadsBeforeRestart = secrets.loadCount
+    let reopened = DaouOfficePluginModel(store: store, secrets: secrets, loadSavedPasswordAtInitialization: false)
     require(!reopened.enabled && reopened.address == config.baseURL.absoluteString, "Disabled configuration did not restore")
+    require(secrets.loadCount == loadsBeforeRestart, "Module registration queried saved credentials before user action")
+    reopened.start()
+    require(secrets.loadCount == loadsBeforeRestart, "Starting a disconnected module queried saved credentials")
+    reopened.setEnableRequested(true)
+    require(reopened.canSave && reopened.password.isEmpty, "Enabling after disconnect and restart requires retyping the saved password")
+    require(secrets.loadCount == loadsBeforeRestart + 1 && !reopened.enabled && !reopened.isRunning,
+        "Explicit enabling did not lazily load the credential or initiated authentication before save")
+    reopened.setEnableRequested(true)
+    require(secrets.loadCount == loadsBeforeRestart + 1, "Repeated enabling queried the saved credential again")
     require(reopened.canUseSavedPassword, "Matching account lost saved password option")
     reopened.loginID = "another.employee"
     require(!reopened.canUseSavedPassword, "Password reused across identities")
