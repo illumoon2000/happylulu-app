@@ -7,7 +7,7 @@ import AppPluginCore
 @MainActor
 final class AppModel: ObservableObject {
     @Published private(set) var state: AttendanceState
-    @Published private(set) var now = Date()
+    @Published private(set) var now: Date
     @Published var errorMessage: String?
     @Published private(set) var loginStatus = SMAppService.mainApp.status
     @Published private(set) var calendarHalfDayMode: WorkdayMode?
@@ -20,6 +20,8 @@ final class AppModel: ObservableObject {
     private var lastPeriodicRefreshAt: Date?
     private let attendance: any AttendanceAdapter
     private let featureRouter: FeatureAdapterRouter
+    private let nowProvider: () -> Date
+    private let calendarProvider: () -> Calendar
     private weak var pluginManager: PluginManagerModel?
     private var observedDetectionEnabled = true
     private var detectionAllowed: Bool { pluginManager.map { !$0.catalogConfigured || ($0.canChangeCatalog && $0.isEnabled("leave-detection") && $0.allowsExternalIntegrations) } ?? true }
@@ -36,7 +38,7 @@ final class AppModel: ObservableObject {
 
     var isProcessingAttendance: Bool { processingArrivals }
 
-    var calendar: Calendar { Calendar.current }
+    var calendar: Calendar { calendarProvider() }
     var arrival: Arrival? { attendance.today(in: state, now: now, calendar: calendar) }
     var departure: Date? { arrival.map { attendance.departure(for: $0, settings: state.settings) } }
     var todayDayType: ManualDayType? { state.manualDayTypes[dayKey(now)] }
@@ -49,7 +51,7 @@ final class AppModel: ObservableObject {
     func setCountdownDisplay(_ choice: CountdownDisplay) {
         choice.save()
         countdownDisplay = choice
-        now = Date()
+        now = nowProvider()
         if timer != nil { startCountdownTimer() }
     }
     private var countdownRefreshInterval: TimeInterval {
@@ -118,9 +120,12 @@ final class AppModel: ObservableObject {
     }
 
     init(store: StateStore = .standard, attendance: any AttendanceAdapter = DefaultAttendanceAdapter(),
-         featureRouter: FeatureAdapterRouter, allowsLoginItemChanges: Bool = true) {
+         featureRouter: FeatureAdapterRouter, allowsLoginItemChanges: Bool = true,
+         nowProvider: @escaping () -> Date = Date.init, calendarProvider: @escaping () -> Calendar = { .current }) {
         self.store = store; self.attendance = attendance; self.featureRouter = featureRouter
         self.allowsLoginItemChanges = allowsLoginItemChanges
+        self.nowProvider = nowProvider; self.calendarProvider = calendarProvider
+        now = nowProvider()
         observedHalfDaySource = featureRouter.selectedID(for: .halfDay)
         do { state = try store.load() }
         catch {
@@ -148,7 +153,7 @@ final class AppModel: ObservableObject {
                     self.halfDayObservationGeneration += 1
                     self.calendarHalfDayMode = nil; self.calendarModeDay = nil
                     self.calendarHalfDayMessage = nil; self.lastCalendarCheckAt = nil
-                    if self.state.detectHalfDaysFromCalendar && manager.canChangeCatalog { self.applyCalendarHalfDay(nil, checkedAt: Date()) }
+                    if self.state.detectHalfDaysFromCalendar && manager.canChangeCatalog { self.applyCalendarHalfDay(nil, checkedAt: self.nowProvider()) }
                 }
                 self.observedHalfDaySnapshotAt = fetchedAt
                 if self.state.detectHalfDaysFromCalendar && self.detectionAllowed { await self.refreshCalendarHalfDay(force: true) }
@@ -226,7 +231,7 @@ final class AppModel: ObservableObject {
     }
 
     func refresh() {
-        now = Date()
+        now = nowProvider()
         lastPeriodicRefreshAt = now
         loginStatus = SMAppService.mainApp.status
         if state.detectHalfDaysFromCalendar && detectionAllowed,
@@ -236,7 +241,7 @@ final class AppModel: ObservableObject {
     }
 
     private func tick() {
-        now = Date()
+        now = nowProvider()
         if timer?.timeInterval != countdownRefreshInterval { startCountdownTimer() }
         if lastPeriodicRefreshAt.map({ now.timeIntervalSince($0) >= 15 }) ?? true {
             refresh()
@@ -246,7 +251,7 @@ final class AppModel: ObservableObject {
     @objc private func woke(_ notification: Notification) { refresh() }
 
     @objc private func screenUnlocked(_ notification: Notification) {
-        enqueueArrival(at: Date(), isLogin: false)
+        enqueueArrival(at: nowProvider(), isLogin: false)
     }
 
     private func enqueueArrival(at receivedAt: Date, isLogin: Bool) {
@@ -360,7 +365,7 @@ final class AppModel: ObservableObject {
 
     private func refreshCalendarHalfDay(force: Bool = false) async {
         guard state.detectHalfDaysFromCalendar, detectionAllowed else { return }
-        let checkedAt = Date()
+        let checkedAt = nowProvider()
         if !force, let lastCalendarCheckAt, checkedAt.timeIntervalSince(lastCalendarCheckAt) < 300 { return }
         lastCalendarCheckAt = checkedAt
         halfDayRefreshGeneration += 1
@@ -384,7 +389,7 @@ final class AppModel: ObservableObject {
 
     private func applyCalendarHalfDay(_ mode: WorkdayMode?, checkedAt: Date) {
         let day = attendance.dayKey(checkedAt, calendar: calendar)
-        guard day == attendance.dayKey(Date(), calendar: calendar) else { return }
+        guard day == attendance.dayKey(nowProvider(), calendar: calendar) else { return }
         calendarModeDay = day
         calendarHalfDayMode = mode
         let conflictsWithRecordedTime = mode.flatMap { selected in

@@ -40,6 +40,8 @@ final class ProbeAdapter: FeatureAdapter {
     var pauses = false
     var pausesHalfDays = false
     var heldHalfDay: CheckedContinuation<[String], Error>?
+    var halfDayReads: [Date] = []
+    var halfDayReplies = 0
     init(_ id: String) { descriptor = FeatureAdapterDescriptor(id: id, name: id, features: Set(AppFeature.allCases)) }
     func calendarEvents(in interval: DateInterval) async throws -> [FeatureCalendarEvent] {
         if pauses { return try await withCheckedThrowingContinuation { held = $0 } }
@@ -51,6 +53,8 @@ final class ProbeAdapter: FeatureAdapter {
         if let accessFailure { throw accessFailure }
     }
     func halfDayTitles(on day: Date, timeZone: TimeZone) async throws -> [String] {
+        halfDayReads.append(day)
+        defer { halfDayReplies += 1 }
         if pausesHalfDays { return try await withCheckedThrowingContinuation { heldHalfDay = $0 } }
         return titles
     }
@@ -98,6 +102,91 @@ private func waitForArchitecture(_ message: String, _ condition: () -> Bool) asy
         require(Date() < deadline, message)
         try await Task.sleep(for: .milliseconds(5))
     }
+}
+
+@MainActor
+private func checkInjectedAttendanceClock(root: URL) throws {
+    let defaults = UserDefaults.standard
+    let savedCountdown = defaults.object(forKey: "HappyLuluCountdownDisplay")
+    defer {
+        if let savedCountdown { defaults.set(savedCountdown, forKey: "HappyLuluCountdownDisplay") }
+        else { defaults.removeObject(forKey: "HappyLuluCountdownDisplay") }
+    }
+    for zone in ["UTC", "Asia/Seoul", "America/Los_Angeles"] {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: zone)!
+        var fixtureCalendar = calendar
+        var fixtureNow = calendar.date(from: DateComponents(year: 2026, month: 10, day: 16, hour: 8, minute: 11))!
+        let store = StateStore(url: root.appendingPathComponent("clock-\(zone)/state.json"))
+        let manager = PluginManagerModel(defaultAdapter: ProbeAdapter("builtin"), routingStore: FeatureRoutingStore(url: nil))
+        let model = AppModel(store: store, featureRouter: manager.router, allowsLoginItemChanges: false,
+                             nowProvider: { fixtureNow }, calendarProvider: { fixtureCalendar })
+        let day = "2026-10-16"
+        require(model.now == fixtureNow && model.dayKey(model.now) == day && model.calendar.timeZone == calendar.timeZone,
+                "Initial attendance clock/calendar ignored the injected local weekday [\(zone)]")
+        require(model.saveManualClockText("08:11", forDay: day), "08:11 current-minute arrival must save [\(zone)]")
+        let original = try Data(contentsOf: store.url)
+        require(!model.saveManualClockText("08:12", forDay: day), "08:12 must remain future at 08:11 [\(zone)]")
+        let rejected = try Data(contentsOf: store.url)
+        require(rejected == original, "A rejected future arrival changed stored bytes [\(zone)]")
+        fixtureNow = fixtureNow.addingTimeInterval(60)
+        require(model.saveManualClock(fixtureNow, forDay: day, selectedMode: nil) && model.arrival?.time == fixtureNow,
+                "Date-based clock save did not use the advanced injected clock [\(zone)]")
+        fixtureNow = calendar.date(bySettingHour: 16, minute: 0, second: 0, of: fixtureNow)!
+        let manualTime = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: fixtureNow)!
+        require(model.saveManual(manualTime, selectedMode: nil) && model.now == fixtureNow && model.arrival?.time == manualTime,
+                "Manual arrival save escaped the injected clock [\(zone)]")
+        fixtureNow = calendar.date(bySettingHour: 23, minute: 59, second: 59, of: fixtureNow)!
+        model.setCountdownDisplay(model.countdownDisplay)
+        require(model.now == fixtureNow && model.dayKey(model.now) == day,
+                "Countdown preference refresh escaped the injected clock [\(zone)]")
+        let beforeMidnight = try Data(contentsOf: store.url)
+        fixtureNow = fixtureNow.addingTimeInterval(1)
+        model.refresh()
+        require(model.now == fixtureNow && model.dayKey(model.now) == "2026-10-17" && model.arrival == nil,
+                "Local midnight refresh retained the previous attendance day [\(zone)]")
+        require(!model.saveManualClockText("08:12", forDay: day), "Midnight must reject a previous-day editor [\(zone)]")
+        let afterMidnight = try Data(contentsOf: store.url)
+        require(afterMidnight == beforeMidnight && model.state.arrivals[day]?.time == manualTime,
+                "Stale midnight editor changed preserved attendance [\(zone)]")
+        fixtureCalendar.timeZone = TimeZone(identifier: zone == "UTC" ? "Asia/Seoul" : "UTC")!
+        require(model.calendar.timeZone == fixtureCalendar.timeZone,
+                "Calendar provider was captured once instead of read dynamically [\(zone)]")
+    }
+    print("PASS injected attendance clock: UTC/Seoul/Los Angeles, 08:11 future guard, advanced minute, manual APIs, countdown refresh, local midnight preservation")
+}
+
+@MainActor
+private func checkInjectedAsyncClock(root: URL) async throws {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(identifier: "Asia/Seoul")!
+    let fixtureCalendar = calendar
+    var fixtureNow = calendar.date(from: DateComponents(year: 2026, month: 10, day: 16, hour: 23, minute: 59, second: 59))!
+    let checkedAt = fixtureNow
+    let store = StateStore(url: root.appendingPathComponent("async-clock.json"))
+    var state = AttendanceState(); state.didOfferLoginItem = true; state.detectHalfDaysFromCalendar = true
+    try store.save(state)
+    let adapter = ProbeAdapter("builtin")
+    adapter.pausesHalfDays = true
+    let manager = PluginManagerModel(defaultAdapter: adapter, routingStore: FeatureRoutingStore(url: nil))
+    let model = AppModel(store: store, featureRouter: manager.router, allowsLoginItemChanges: false,
+                         nowProvider: { fixtureNow }, calendarProvider: { fixtureCalendar })
+    model.checkCalendarHalfDayNow()
+    try await waitForArchitecture("Injected half-day request did not suspend") { adapter.heldHalfDay != nil }
+    require(adapter.halfDayReads == [checkedAt], "Async request captured wall time instead of the fixture clock")
+    fixtureNow = fixtureNow.addingTimeInterval(1)
+    model.refresh()
+    let reply = adapter.heldHalfDay!; adapter.heldHalfDay = nil; adapter.pausesHalfDays = false
+    reply.resume(returning: ["오후 반차"])
+    try await waitForArchitecture("Previous-day half-day reply did not finish") { adapter.halfDayReplies == 1 }
+    require(model.calendarHalfDayMode == nil && model.detectedModeToday == nil,
+            "Async reply crossed injected local midnight and applied yesterday's mode")
+    adapter.titles = ["오전 반차"]
+    model.checkCalendarHalfDayNow()
+    try await waitForArchitecture("Current-day injected half-day reply was ignored") { model.detectedModeToday == .morningHalf }
+    require(adapter.halfDayReads == [checkedAt, fixtureNow] && model.now == fixtureNow,
+            "Async refresh did not capture the advanced injected clock")
+    print("PASS injected async attendance clock: captured request time, stale reply rejected at local midnight, fresh next-day mode applied")
 }
 
 @MainActor
@@ -591,6 +680,8 @@ struct PluginArchitectureChecks {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("HappyLulu-architecture-" + UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
+        try checkInjectedAttendanceClock(root: root)
+        try await checkInjectedAsyncClock(root: root)
         try checkLegacyBuiltinMigration(root: root)
         try await checkOptionalCatalog(root: root)
         try await checkDisabledRoutesAndMigration(root: root)
@@ -637,15 +728,19 @@ struct PluginArchitectureChecks {
                 && loadedDay.state == priorFailedClock, "Future manual time must be rejected without changing data")
         require(!loadedDay.saveManualClockText("25:99", forDay: loadedDay.dayKey(loadedDay.now)),
                 "Invalid inline clock must be rejected")
-        let clockCalendar = Calendar.current
-        let fixtureClock = clockCalendar.date(bySettingHour: 9, minute: 0, second: 0, of: Date())!
+        var clockCalendar = Calendar(identifier: .gregorian)
+        clockCalendar.timeZone = TimeZone(identifier: "Asia/Seoul")!
+        let fixtureCalendar = clockCalendar
+        let fixtureNow = clockCalendar.date(from: DateComponents(year: 2026, month: 10, day: 16, hour: 16))!
+        let fixtureClock = clockCalendar.date(bySettingHour: 9, minute: 0, second: 0, of: fixtureNow)!
         var clockState = AttendanceState(); clockState.didOfferLoginItem = true
         let clockDay = Attendance.dayKey(fixtureClock, calendar: clockCalendar)
         clockState.arrivals[clockDay] = Arrival(day: clockDay, time: fixtureClock, source: .manual,
             timeZoneID: clockCalendar.timeZone.identifier, mode: .normal, modeSource: .manual, earlyLeaveOverrideMinutes: 0)
         let clockStore = StateStore(url: root.appendingPathComponent("compact-clock.json"))
         try clockStore.save(clockState)
-        let clockModel = AppModel(store: clockStore, featureRouter: manualDayRouter.router, allowsLoginItemChanges: false)
+        let clockModel = AppModel(store: clockStore, featureRouter: manualDayRouter.router, allowsLoginItemChanges: false,
+                                  nowProvider: { fixtureNow }, calendarProvider: { fixtureCalendar })
         require(clockModel.menuTitle.hasSuffix("18:00"), "Compact menu must use explicit 24-hour departure")
         clockModel.setLoginEnabled(true)
         require(clockModel.errorMessage != nil && clockModel.state == clockState,
@@ -656,13 +751,8 @@ struct PluginArchitectureChecks {
         require(!clockModel.saveManualClockText("09:00", forDay: "1900-01-01") && clockModel.state == beforeBadClock,
                 "Inline clock must reject a stale editing date")
         print("PASS compact panel model: explicit 24-hour title, login isolation and invalid/stale inline input preservation")
-        // Keep today's editable clock in the past on every CI runner timezone.
-        let previousTimeZone = NSTimeZone.default
-        let utcHour = Calendar(identifier: .gregorian).dateComponents(in: TimeZone(secondsFromGMT: 0)!, from: Date()).hour!
-        NSTimeZone.default = TimeZone(secondsFromGMT: (16 - utcHour) * 3600)!
-        defer { NSTimeZone.default = previousTimeZone }
-        let regressionCalendar = Calendar.current
-        let regressionTime = regressionCalendar.date(bySettingHour: 9, minute: 0, second: 0, of: Date())!
+        let regressionCalendar = fixtureCalendar
+        let regressionTime = fixtureClock
         let regressionDay = Attendance.dayKey(regressionTime, calendar: regressionCalendar)
         var regressionState = AttendanceState()
         regressionState.didOfferLoginItem = true
@@ -672,7 +762,8 @@ struct PluginArchitectureChecks {
         try regressionStore.save(regressionState)
         let regressionAdapter = ProbeAdapter("regression")
         let regressionRouter = PluginManagerModel(defaultAdapter: regressionAdapter, routingStore: FeatureRoutingStore(url: nil))
-        let regressionModel = AppModel(store: regressionStore, featureRouter: regressionRouter.router, allowsLoginItemChanges: false)
+        let regressionModel = AppModel(store: regressionStore, featureRouter: regressionRouter.router, allowsLoginItemChanges: false,
+                                       nowProvider: { fixtureNow }, calendarProvider: { fixtureCalendar })
         require(regressionModel.saveManualClockText("09:01", forDay: regressionDay), "Clock-only edit must save")
         require(regressionModel.arrival?.modeSource == .automatic && regressionModel.todayDayType == nil,
                 "Clock-only edit must preserve automatic workday mode")
@@ -702,10 +793,11 @@ struct PluginArchitectureChecks {
                 "Combined regular selection and clock edit must clear the Lulu reduction")
         print("PASS attendance regressions: inline clock preserves calendar updates; annual leave permits arrival deletion")
         // A real unchanged default must persist, not be mistaken for an unchanged existing arrival.
-        NSTimeZone.default = TimeZone(secondsFromGMT: (9 - utcHour) * 3600)!
+        let defaultNow = fixtureClock
         let defaultClockStore = StateStore(url: root.appendingPathComponent("default-clock.json"))
         let defaultClockModel = AppModel(store: defaultClockStore, featureRouter: manualDayRouter.router,
-                                         allowsLoginItemChanges: false)
+                                         allowsLoginItemChanges: false, nowProvider: { defaultNow },
+                                         calendarProvider: { fixtureCalendar })
         let defaultDraft = ArrivalClockEdit(existingTime: nil, now: defaultClockModel.now,
                                             timeZone: defaultClockModel.calendar.timeZone)
         require(defaultDraft.needsSave && defaultClockModel.saveManualClockText(defaultDraft.text,

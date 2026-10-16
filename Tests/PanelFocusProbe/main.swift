@@ -9,6 +9,7 @@ private func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.fl
 
 @MainActor
 private func pump(_ host: NSView) {
+    // UI delivery waits use elapsed wall time; attendance uses the injected fixture clock.
     RunLoop.current.run(until: Date().addingTimeInterval(0.1))
     host.layoutSubtreeIfNeeded()
 }
@@ -18,11 +19,31 @@ struct PanelFocusProbe {
     @MainActor static func main() throws {
         _ = NSApplication.shared
         let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
+        let timeZone = TimeZone(identifier: CommandLine.arguments[2])!
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        let fixtureCalendar = calendar
+        var fixtureNow = calendar.date(from: DateComponents(year: 2026, month: 10, day: 16, hour: 7, minute: 59))!
         let store = StateStore(url: root.appendingPathComponent("state.json"))
         let manager = PluginManagerModel(defaultAdapter: DefaultFeatureAdapter(), routingStore: FeatureRoutingStore(url: nil))
-        let model = AppModel(store: store, featureRouter: manager.router, allowsLoginItemChanges: false)
+        let model = AppModel(store: store, featureRouter: manager.router, allowsLoginItemChanges: false,
+                             nowProvider: { fixtureNow }, calendarProvider: { fixtureCalendar })
+        precondition(model.now == fixtureNow && model.calendar.timeZone == timeZone,
+                     "AppModel initialization ignored the fixture clock/calendar")
+        precondition(!model.saveManualClockText("08:00", forDay: model.dayKey(model.now)) && model.state.arrivals.isEmpty,
+                     "07:59 fixture must reject a future 08:00 arrival")
+        fixtureNow = calendar.date(bySettingHour: 8, minute: 11, second: 0, of: fixtureNow)!
+        model.refresh()
         precondition(model.saveManualClockText("08:11", forDay: model.dayKey(model.now)))
         let original = try Data(contentsOf: store.url)
+        precondition(!model.saveManualClockText("08:12", forDay: model.dayKey(model.now)),
+                     "08:11 fixture must reject a future 08:12 arrival")
+        let afterFuture = try Data(contentsOf: store.url)
+        precondition(afterFuture == original && model.now == fixtureNow,
+                     "Rejected future time changed attendance or escaped the fixture clock")
+        fixtureNow = calendar.date(bySettingHour: 16, minute: 0, second: 0, of: fixtureNow)!
+        model.refresh()
+        precondition(model.now == fixtureNow && model.dayKey(model.now) == "2026-10-16")
         let sync = CalendarSyncModel(runtimeAllowed: false, storeURL: root.appendingPathComponent("sync.sqlite"))
         let panel = PanelView(model: model, calendarSync: sync, plugins: manager, onOpenHistory: {}, onOpenSettings: {})
         let host = NSHostingView(rootView: panel)
@@ -35,6 +56,8 @@ struct PanelFocusProbe {
         let fields = descendants(host).compactMap { $0 as? NSTextField }.filter { $0.cell is ArrivalClockDigitCell }
             .sorted { $0.convert(.zero, to: host).x < $1.convert(.zero, to: host).x }
         precondition(fields.count == 4, "Panel did not enter its four-digit editor")
+        precondition(fields.map { $0.stringValue } == ["0", "8", "1", "1"] && model.now == fixtureNow,
+                     "Panel onAppear/beginEditing refresh ignored the fixture clock")
         var saves = 0
         let observation = model.$state.dropFirst().sink { _ in saves += 1 }
         precondition(window.makeFirstResponder(fields[0]))
@@ -69,6 +92,8 @@ struct PanelFocusProbe {
         let persisted = try store.load()
         let arrival = persisted.arrivals[model.dayKey(model.now)]!
         precondition(Attendance.clockLabel(arrival.time, timeZone: model.calendar.timeZone) == "08:12")
+        precondition(model.now == fixtureNow && arrival.day == "2026-10-16",
+                     "Final panel save escaped the fixed weekday clock")
         let attributes = try FileManager.default.attributesOfItem(atPath: store.url.path)
         NSApplication.shared.sendEvent(event)
         pump(host)
@@ -77,6 +102,6 @@ struct PanelFocusProbe {
                      attributes[.modificationDate] as? Date == repeated[.modificationDate] as? Date,
                      "Repeated outside click saved the same draft again")
         withExtendedLifetime(observation) {}
-        print("PASS real PanelView focus: actual first-digit typing, internal move/pause, production Tab/pause, no intermediate writes, outside click closes and persists once")
+        print("PASS real PanelView focus [host \(ProcessInfo.processInfo.environment["TZ"] ?? "default"), fixture \(timeZone.identifier)]: fixed Friday 16:00, 07:59/08:11 future guards, actual first-digit typing, internal move/pause, production Tab/pause, no intermediate writes, outside click closes and persists once")
     }
 }

@@ -38,4 +38,11 @@ swiftc -parse-as-library -swift-version 6 -I "$build_dir/Modules" \
   "$build_dir"/CalendarSyncCore.build/*.swift.o \
   -framework AppKit -framework SwiftUI -framework Security -framework EventKit -framework ServiceManagement -lsqlite3 \
   -o "$probe_dir/check"
-"$probe_dir/check" "$probe_dir"
+for time_zone in UTC Asia/Seoul America/Los_Angeles; do
+  case "$time_zone" in
+    UTC) fixture_time_zone=Asia/Seoul ;;
+    Asia/Seoul) fixture_time_zone=America/Los_Angeles ;;
+    America/Los_Angeles) fixture_time_zone=UTC ;;
+  esac
+  TZ="$time_zone" "$probe_dir/check" "$probe_dir/$time_zone" "$fixture_time_zone"
+done
