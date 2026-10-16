@@ -9,6 +9,10 @@ struct TodayAgendaView: View {
     let now: Date
     let onOpenCalendar: () -> Void
     private var calendar: Calendar { model.calendar }
+    private var hasCalendar: Bool {
+        let id = plugins.router.selectedID(for: .calendar)
+        return id != plugins.router.defaultID && plugins.router.descriptors.contains { $0.id == id && $0.features.contains(.calendar) && plugins.router.isEnabled(id) }
+    }
     private var start: Date { calendar.startOfDay(for: now) }
     private var end: Date { calendar.date(byAdding: .day, value: 1, to: start) ?? start }
     private var readID: String {
@@ -20,11 +24,14 @@ struct TodayAgendaView: View {
             HStack {
                 Text(L("오늘 일정", "Today's agenda")).font(.system(size: 13, weight: .semibold))
                 Spacer()
-                Button(agenda.remainingCount > 0 ? L("+\(agenda.remainingCount)건", "+\(agenda.remainingCount) more") : L("전체 보기", "View all"),
+                Button(!hasCalendar ? L("플러그인 관리", "Manage plugins") : agenda.remainingCount > 0 ? L("+\(agenda.remainingCount)건", "+\(agenda.remainingCount) more") : L("전체 보기", "View all"),
                        action: onOpenCalendar)
                     .buttonStyle(.borderless).font(.system(size: 10)).foregroundStyle(.secondary)
             }
-            if model.isLoading {
+            if !hasCalendar {
+                Text(L("캘린더 플러그인을 추가하면 일정을 볼 수 있어요.", "Add a calendar plugin to see events."))
+                    .font(.caption).foregroundStyle(.secondary)
+            } else if model.isLoading {
                 Text(L("일정을 불러오는 중…", "Loading events…")).font(.caption).foregroundStyle(.secondary)
             } else if let error = model.errorMessage {
                 Button(L("일정 연결 확인이 필요해요", "Check the calendar connection"), action: onOpenCalendar)
@@ -43,6 +50,9 @@ struct TodayAgendaView: View {
                 }
             }
         }.frame(maxWidth: .infinity, minHeight: 96, maxHeight: 96, alignment: .topLeading)
-        .task(id: readID) { await model.load(in: DateInterval(start: start, end: end)) }
+        .task(id: readID) {
+            guard hasCalendar else { return }
+            await model.load(in: DateInterval(start: start, end: end))
+        }
     }
 }

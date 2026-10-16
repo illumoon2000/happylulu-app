@@ -4,10 +4,14 @@ import AfterSixCore
 private typealias DayTypeState<Value> = SwiftUI.State<Value>
 
 struct TodayDayTypeView: View {
+    @ObservedObject private var appearance = AppearanceModel.shared
     @ObservedObject var model: AppModel
     var onSelect: ((ManualDayType) -> Bool)? = nil
     @DayTypeState private var expanded = false
-    private let accent = Color(red: 0.16, green: 0.48, blue: 0.42)
+    private var accent: Color { appearance.accent }
+    private var selectedForeground: Color {
+        AppearancePreferences.luminance(appearance.hex(.accent)) > 0.179 ? .black : .white
+    }
 
     var body: some View {
         HStack(spacing: 4) {
@@ -20,7 +24,7 @@ struct TodayDayTypeView: View {
                         .font(.system(size: 11, weight: .medium))
                         .lineLimit(1).minimumScaleFactor(0.85)
                         .padding(.horizontal, 7).frame(height: 27)
-                        .foregroundStyle(type == model.effectiveDayType ? Color.white : Color.primary)
+                        .foregroundStyle(type == model.effectiveDayType ? selectedForeground : appearance.text)
                         .background(type == model.effectiveDayType ? accent : Color.primary.opacity(0.045), in: Capsule())
                 }
                 .buttonStyle(.plain)

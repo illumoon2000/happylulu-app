@@ -26,9 +26,11 @@ func expectThrows<T>(_ value: @autoclosure () throws -> T, file: StaticString = 
     failure("Expected an error", file: file, line: line)
 }
 
+try checkAppearancePreferences()
 try checkEarlyArrival()
 try checkAttendanceAdapter()
 try checkManualDayTypes()
+checkArrivalClockEdit()
 
 let tests = AttendanceTests()
 let checks: [(String, () throws -> Void)] = [
@@ -135,3 +137,16 @@ for (minutes, korean, english) in settingsDurationSamples {
     expectEqual(CountdownDisplay.hoursMinutes.text(seconds: TimeInterval(minutes) * 60, korean: false), english)
 }
 print("PASS settings durations: zero, hour boundaries, valid work/break limits, Korean/English")
+
+let runtimeRoot = URL(fileURLWithPath: "/tmp/happylulu-profile-fixture")
+let productionProfile = AppRuntimeProfile(bundleIdentifier: AppRuntimeProfile.productionIdentifier, applicationSupport: runtimeRoot)
+precondition(!productionProfile.isDevelopment && productionProfile.allowsExternalIntegrations && productionProfile.allowsLoginItemChanges)
+precondition(productionProfile.stateURL == runtimeRoot.appendingPathComponent("AfterSix/state.json"))
+for identifier in [nil, "test.qa", "local.chanyoung.HappyLulu.Dev.manual-leave.20261015"] as [String?] {
+    let profile = AppRuntimeProfile(bundleIdentifier: identifier, applicationSupport: runtimeRoot)
+    precondition(profile.isDevelopment && !profile.allowsExternalIntegrations && !profile.allowsLoginItemChanges && !profile.allowsAutomaticActivity)
+    precondition([profile.stateURL, profile.routingURL, profile.catalogURL, profile.syncURL].allSatisfy { $0.path.contains("HappyLulu Dev/") })
+}
+let devProfile = AppRuntimeProfile(bundleIdentifier: "local.chanyoung.HappyLulu.Dev.manual-leave.20261015", applicationSupport: runtimeRoot)
+precondition(devProfile.stateURL == runtimeRoot.appendingPathComponent("HappyLulu Dev/manual-leave-today/state.json"))
+print("PASS production composition profile and isolated Dev paths/service gates")

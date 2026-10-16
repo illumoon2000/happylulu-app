@@ -1,9 +1,17 @@
 import Foundation
 
+public enum PluginAuthors {
+    public static let daouOffice = "손정열"
+    public static let contributors = "HappyLulu contributors"
+}
+
 public struct PluginDescriptor: Sendable, Equatable, Identifiable {
     public let id: String
     public let name: String
-    public init(id: String, name: String) { self.id = id; self.name = name }
+    public let author: String
+    public init(id: String, name: String, author: String = PluginAuthors.contributors) {
+        self.id = id; self.name = name; self.author = author
+    }
 }
 
 public enum PluginFailure: Error, Sendable {
