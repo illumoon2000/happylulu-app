@@ -59,14 +59,17 @@ final class CalendarSyncModel: ObservableObject {
     @Published private(set) var eventReadError: String?
     @Published private(set) var eventsRevision = 0
     private var eventReadGeneration = 0
-    private let eventDisplayAccess = SystemCalendarAccess()
+    private lazy var eventDisplayAccess = SystemCalendarAccess()
 
-    private let calendarAccess: any CalendarSyncAccess
+    private lazy var calendarAccess: any CalendarSyncAccess = SystemCalendarAccess()
     private let store: SyncStore?
     private var timer: Timer?
-    private let networkMonitor = NWPathMonitor()
+    private var networkMonitor: NWPathMonitor?
     private let networkQueue = DispatchQueue(label: "HappyLulu.CalendarNetwork")
     private var loaded = false
+    private(set) var runtimeAllowed = true
+    private var runtimeGeneration = 0
+    private var operations: [UUID: Task<Void, Never>] = [:]
     private var calendarRefreshPending = false
     private var appliedState: CalendarSyncState?
     @Published private var reviewedPairKey: String?
@@ -84,8 +87,8 @@ final class CalendarSyncModel: ObservableObject {
         return state.canBeginSystemSync(reviewedPairKey: reviewedPairKey)
     }
 
-    init() {
-        calendarAccess = SystemCalendarAccess()
+    init(runtimeAllowed: Bool = true) {
+        self.runtimeAllowed = runtimeAllowed
         do { store = try SyncStore() }
         catch {
             store = nil
@@ -94,10 +97,40 @@ final class CalendarSyncModel: ObservableObject {
         observeApplicationActivation()
     }
 
-    init(calendarAccess: any CalendarSyncAccess, store: SyncStore? = nil) {
-        self.calendarAccess = calendarAccess
+    init(calendarAccess: any CalendarSyncAccess, store: SyncStore? = nil, runtimeAllowed: Bool = true) {
+        self.runtimeAllowed = runtimeAllowed
         self.store = store
+        self.calendarAccess = calendarAccess
         observeApplicationActivation()
+    }
+
+    private func launch(_ action: @escaping @MainActor () async -> Void) {
+        guard runtimeAllowed else { return }
+        let id = UUID()
+        operations[id] = Task { [weak self] in
+            defer { self?.operations[id] = nil }
+            await action()
+        }
+    }
+    func setRuntimeAllowed(_ allowed: Bool) {
+        guard runtimeAllowed != allowed else { return }
+        runtimeAllowed = allowed
+        if allowed { start() } else {
+            runtimeGeneration += 1; eventReadGeneration += 1
+            for task in operations.values { task.cancel() }
+            operations.removeAll()
+            timer?.invalidate(); timer = nil
+            networkMonitor?.cancel(); networkMonitor = nil
+            NSWorkspace.shared.notificationCenter.removeObserver(self)
+            loaded = false; calendarRefreshPending = false
+            displayedEvents = []; isLoadingEvents = false
+            eventsRevision += 1
+        }
+    }
+    func legacyConfigured() async throws -> Bool {
+        guard let store else { return false }
+        let state = try await store.load()
+        return state.configuration.hasSelectedPair || state.configuration.enabled || state.lastSuccessAt != nil
     }
 
     private func observeApplicationActivation() {
@@ -110,7 +143,7 @@ final class CalendarSyncModel: ObservableObject {
     }
 
     func start() {
-        guard !loaded else { return }
+        guard runtimeAllowed, !loaded else { return }
         loaded = true
         Task { await load() }
         timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
@@ -123,6 +156,8 @@ final class CalendarSyncModel: ObservableObject {
             name: NSWorkspace.didWakeNotification,
             object: nil
         )
+        let networkMonitor = NWPathMonitor()
+        self.networkMonitor = networkMonitor
         networkMonitor.pathUpdateHandler = { [weak self] path in
             guard path.status == .satisfied else { return }
             Task { @MainActor in self?.runIfDue() }
@@ -131,6 +166,7 @@ final class CalendarSyncModel: ObservableObject {
     }
 
     func prepareForDisplay() {
+        guard runtimeAllowed else { return }
         start()
         Task { await requestCalendarAccess(requestPermission: false) }
     }
@@ -150,9 +186,11 @@ final class CalendarSyncModel: ObservableObject {
     @objc private func woke(_ notification: Notification) { runIfDue() }
 
     private func load() async {
+        let generation = runtimeGeneration
         guard let store else { return }
         do {
             let state = try await store.load()
+            guard runtimeAllowed, generation == runtimeGeneration, !Task.isCancelled else { return }
             apply(state)
             runIfDue()
         } catch { message = error.localizedDescription }
@@ -241,6 +279,8 @@ final class CalendarSyncModel: ObservableObject {
     }
 
     func requestCalendarAccess(requestPermission: Bool = true) async {
+        guard runtimeAllowed else { return }
+        let generation = runtimeGeneration
         guard !isRunning else {
             if !requestPermission { calendarRefreshPending = true }
             return
@@ -249,13 +289,16 @@ final class CalendarSyncModel: ObservableObject {
         defer { isRunning = false }
         do {
             if requestPermission { try await calendarAccess.requestAccess() }
-            calendars = try await calendarAccess.writableCalendars()
+            let values = try await calendarAccess.writableCalendars()
+            guard runtimeAllowed, generation == runtimeGeneration, !Task.isCancelled else { return }
+            calendars = values
             calendarAccessReady = true
             eventsRevision += 1
             message = calendars.isEmpty
                 ? "쓸 수 있는 시스템 캘린더가 없습니다. 인터넷 계정에서 계정을 추가해 주세요."
                 : "시스템 캘린더 \(calendars.count)개를 찾았어요."
         } catch {
+            guard runtimeAllowed, generation == runtimeGeneration, !Task.isCancelled else { return }
             calendarAccessReady = false
             message = error.localizedDescription
         }
@@ -267,12 +310,14 @@ final class CalendarSyncModel: ObservableObject {
 
     /// Default adapter reads without coupling a feature view to display-loading state.
     func featureEvents(in interval: DateInterval) async throws -> [SystemCalendarDisplayEvent] {
+        guard runtimeAllowed else { return [] }
         let ids = [selectedDaouCalendar, selectedGoogleCalendar].filter { !$0.isEmpty }
         guard !ids.isEmpty else { return [] }
         return try await eventDisplayAccess.displayEvents(calendarIDs: ids, start: interval.start, end: interval.end)
     }
 
     func loadDisplayedEvents(start: Date, end: Date) async {
+        guard runtimeAllowed else { return }
         eventReadGeneration += 1
         let generation = eventReadGeneration
         displayedEvents = []
@@ -302,9 +347,13 @@ final class CalendarSyncModel: ObservableObject {
     }
 
     private func coordinator() async throws -> SyncCoordinator {
+        guard runtimeAllowed, !Task.isCancelled else { throw CancellationError() }
         guard let store else { throw SyncCoordinatorError.notConfigured }
         let state = try persistedConfiguration(try await store.load())
+        try Task.checkCancellation()
+        guard runtimeAllowed else { throw CancellationError() }
         try await store.save(state)
+        try Task.checkCancellation()
         guard let daouID = state.configuration.daouCalendarURL,
               let googleID = state.configuration.googleCalendarID else {
             throw SyncCoordinatorError.notConfigured
@@ -316,11 +365,11 @@ final class CalendarSyncModel: ObservableObject {
         )
     }
 
-    func runPreview() { Task { await run(allowWrites: false) } }
-    func syncNow() { Task { await run(allowWrites: true) } }
+    func runPreview() { launch { [self] in await run(allowWrites: false) } }
+    func syncNow() { launch { [self] in await run(allowWrites: true) } }
 
     private func run(allowWrites: Bool) async {
-        guard !isRunning else { return }
+        guard runtimeAllowed, !Task.isCancelled, !isRunning else { return }
         if !allowWrites { reviewedPairKey = nil }
         isRunning = true
         defer { isRunning = false }
@@ -328,10 +377,14 @@ final class CalendarSyncModel: ObservableObject {
     }
 
     private func performRun(allowWrites: Bool) async {
+        let generation = runtimeGeneration
         do {
+            guard runtimeAllowed, !Task.isCancelled else { return }
             let summary = try await coordinator().run(allowWrites: allowWrites)
+            guard runtimeAllowed, generation == runtimeGeneration, !Task.isCancelled else { return }
             preview = summary
             let latest = try await store?.load()
+            guard runtimeAllowed, generation == runtimeGeneration, !Task.isCancelled else { return }
             if let latest { apply(latest) }
             if !allowWrites { reviewedPairKey = latest?.pairKey }
             if allowWrites && latest?.lastErrorCode == "initialPendingUncertain" {
@@ -344,43 +397,58 @@ final class CalendarSyncModel: ObservableObject {
                     : "미리보기 완료 · 시스템 캘린더는 변경하지 않았어요."
             }
         } catch {
-            if let store, let state = try? await store.load() { apply(state) }
+            guard runtimeAllowed, generation == runtimeGeneration, !Task.isCancelled else { return }
+            if let store, let state = try? await store.load(), runtimeAllowed, generation == runtimeGeneration { apply(state) }
             message = error.localizedDescription
         }
     }
 
     func beginSync() {
-        Task {
-            guard !isRunning else { return }
+        launch { [self] in
+            guard runtimeAllowed, !Task.isCancelled, !isRunning else { return }
             isRunning = true
             defer { isRunning = false }
             guard let store else { return }
             do {
                 var state = try persistedConfiguration(try await store.load())
+                try Task.checkCancellation()
+                guard runtimeAllowed else { return }
                 try state.beginSystemSync(reviewedPairKey: reviewedPairKey)
+                try Task.checkCancellation()
                 try await store.save(state)
+                guard runtimeAllowed, !Task.isCancelled else { return }
                 reviewedPairKey = nil
                 apply(state)
                 await performRun(allowWrites: true)
-            } catch { message = error.localizedDescription }
+            } catch {
+                guard runtimeAllowed, !Task.isCancelled else { return }
+                message = error.localizedDescription
+            }
         }
     }
 
     func resolveConflict(_ conflict: SyncConflict, prefer side: CalendarSide) {
-        Task {
-            guard !isRunning, enabled else { return }
+        launch { [self] in
+            guard runtimeAllowed, !Task.isCancelled, !isRunning, enabled else { return }
             isRunning = true
             defer { isRunning = false }
             do {
                 let coordinator = try await coordinator()
+                try Task.checkCancellation()
                 try await coordinator.resolveConflict(mappingID: conflict.mappingID, prefer: side)
                 _ = try await coordinator.run(allowWrites: false)
-                if let store { apply(try await store.load()) }
+                try Task.checkCancellation()
+                if let store {
+                    let latest = try await store.load()
+                    guard runtimeAllowed, !Task.isCancelled else { return }
+                    apply(latest)
+                }
                 message = side == .daou
                     ? "다우오피스 캘린더 내용으로 충돌을 해결했어요."
                     : "Google 캘린더 내용으로 충돌을 해결했어요."
             } catch {
-                if let store, let state = try? await store.load() { apply(state) }
+                guard runtimeAllowed, !Task.isCancelled else { return }
+                if let store, let state = try? await store.load(), runtimeAllowed, !Task.isCancelled { apply(state) }
                 message = error.localizedDescription
             }
         }
@@ -391,8 +459,8 @@ final class CalendarSyncModel: ObservableObject {
             beginSync()
             return
         }
-        Task {
-            guard !isRunning else { return }
+        launch { [self] in
+            guard runtimeAllowed, !Task.isCancelled, !isRunning else { return }
             isRunning = true
             defer { isRunning = false }
             guard let store else { return }
@@ -401,16 +469,21 @@ final class CalendarSyncModel: ObservableObject {
                 state.configuration.enabled = false
                 state.nextRunAt = nil
                 state.pauseReason = "userPaused"
+                try Task.checkCancellation()
                 try await store.save(state)
+                guard runtimeAllowed, !Task.isCancelled else { return }
                 reviewedPairKey = nil
                 apply(state)
                 message = "자동 동기화를 일시 중지했어요. 새 미리보기를 확인한 뒤 다시 시작할 수 있어요."
-            } catch { message = error.localizedDescription }
+            } catch {
+                guard runtimeAllowed, !Task.isCancelled else { return }
+                message = error.localizedDescription
+            }
         }
     }
 
     private func runIfDue() {
-        guard enabled, !isRunning, let nextRunAt, nextRunAt <= Date() else { return }
+        guard runtimeAllowed, enabled, !isRunning, let nextRunAt, nextRunAt <= Date() else { return }
         syncNow()
     }
 

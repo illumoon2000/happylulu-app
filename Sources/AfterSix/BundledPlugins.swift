@@ -13,6 +13,13 @@ enum BundledPlugins {
         []
         #endif
     }
+    static func legacyDaouConfigured() throws -> Bool {
+        #if HAPPY_LULU_DAOUOFFICE_ENABLED && canImport(DaouOfficeIntegration)
+        try DaouOfficeModule.hasLegacyConfiguration()
+        #else
+        false
+        #endif
+    }
     static func register(in context: PluginHostContext, modules: [any PluginModule.Type] = BundledPlugins.modules,
                          onFailure: @MainActor () -> Void) {
         for module in modules {

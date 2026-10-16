@@ -5,22 +5,22 @@ import AfterSixCore
 private typealias PanelState<Value> = SwiftUI.State<Value>
 
 struct PanelView: View {
+    @ObservedObject private var appearance = AppearanceModel.shared
     @ObservedObject var model: AppModel
     @ObservedObject var calendarSync: CalendarSyncModel
     @ObservedObject var plugins: PluginManagerModel
     @ObservedObject private var language = AppLanguage.shared
     @StateObject private var agenda: FeatureCalendarModel
     @PanelState private var editing = false
-    @PanelState private var clockText = ""
-    @PanelState private var initialClock = ""
+    @PanelState private var clockEdit: ArrivalClockEdit?
     @PanelState private var editDay = ""
-    @FocusState private var clockFocused: Bool
+    @FocusState private var focusedDigit: Int?
     @PanelState private var saveGeneration = 0
     @PanelState private var selectingType = false
     let onOpenHistory: () -> Void
     let onOpenSettings: () -> Void
     let onOpenCalendar: () -> Void
-    private let accent = Color(red: 0.16, green: 0.48, blue: 0.42)
+    private var accent: Color { appearance.accent }
 
     init(model: AppModel, calendarSync: CalendarSyncModel, plugins: PluginManagerModel,
          onOpenHistory: @escaping () -> Void, onOpenSettings: @escaping () -> Void,
@@ -34,7 +34,7 @@ struct PanelView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 9) {
-                Image(nsImage: NSApplication.shared.applicationIconImage)
+                Image(nsImage: appearance.iconImage)
                     .resizable().interpolation(.high).frame(width: 28, height: 28)
                     .accessibilityLabel("HappyLulu")
                 Text("HappyLulu").font(.system(size: 16, weight: .semibold))
@@ -54,81 +54,134 @@ struct PanelView: View {
                     VStack(alignment: .leading, spacing: 5) {
                         Text(L("출근", "Arrival")).font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
                         if editing {
-                            TextField("09:00", text: $clockText)
-                                .textFieldStyle(.plain).font(.system(size: 31, weight: .semibold, design: .rounded))
-                                .monospacedDigit().foregroundStyle(accent).focused($clockFocused)
-                                .accessibilityLabel(L("출근 시각", "Arrival time"))
-                                .background(ClockClickAwayMonitor(onClickAway: scheduleSave))
-                                .onSubmit { _ = saveClock() }
-                                .onExitCommand { editing = false; clockFocused = false; model.errorMessage = nil }
+                            clockEditor
                         } else {
                             Button(action: beginEditing) {
-                                Text(storedArrival.map { model.timeLabel($0.time) } ?? "—")
-                                    .font(.system(size: 31, weight: .semibold, design: .rounded))
-                                    .monospacedDigit().foregroundStyle(accent)
+                                HStack(spacing: 0) {
+                                    ForEach(Array((storedArrival.map { model.timeLabel($0.time) } ?? "—").enumerated()), id: \.offset) { _, character in
+                                        Text(String(character)).frame(width: character == ":" ? 9 : 20)
+                                    }
+                                }
+                                .font(.system(size: 31, weight: .semibold, design: .rounded))
+                                .monospacedDigit().foregroundStyle(accent)
+                                .frame(height: 34).padding(.vertical, 12)
                             }.buttonStyle(.plain).accessibilityLabel(L("출근 시각 수정", "Edit arrival time"))
                         }
                     }.frame(maxWidth: .infinity, alignment: .leading)
                     Rectangle().fill(accent.opacity(0.12)).frame(width: 1, height: 52)
-                    timeColumn(L("퇴근 예정", "Departure"), time: model.departure.map { model.timeLabel($0) } ?? "—")
+                    timeColumn(L("퇴근 예정", "Departure"), time: model.departure.map { model.timeLabel($0) } ?? "—", timeTopInset: 12)
                 }
                 if let error = model.errorMessage {
-                    Text(visibleMessage(error)).font(.system(size: 10)).foregroundStyle(.red).lineLimit(2)
+                    Text(visibleMessage(error)).font(.system(size: 10)).foregroundStyle(.red).lineLimit(1)
+                        .help(visibleMessage(error))
                 }
             }
-            .padding(14).frame(maxWidth: .infinity, minHeight: 136, maxHeight: 136, alignment: .topLeading)
-            .background(accent.opacity(0.085), in: RoundedRectangle(cornerRadius: 12))
+            .padding(12).frame(maxWidth: .infinity, minHeight: 156, maxHeight: 156, alignment: .topLeading)
+            .background(appearance.surface, in: RoundedRectangle(cornerRadius: 12))
             Divider()
             TodayAgendaView(model: agenda, plugins: plugins, sync: calendarSync,
                             now: model.now, onOpenCalendar: onOpenCalendar)
         }
         .padding(16).frame(width: 364, height: 350, alignment: .topLeading)
         .tint(accent)
+        .foregroundStyle(appearance.text)
+        .background(appearance.background)
+        .preferredColorScheme(appearance.isDark ? .dark : .light)
         .environment(\.locale, selectedLocale)
         .onAppear { model.refresh() }
-        .onChange(of: clockFocused) { focused in
-            if !focused && editing { scheduleSave() }
+        .onChange(of: focusedDigit) { digit in
+            if digit == nil && editing {
+                scheduleSave(onlyIfUnfocused: true)
+            }
         }
         .onDisappear { if editing { _ = saveClock() } }
     }
 
-    private func scheduleSave() {
+    private func scheduleSave() { scheduleSave(onlyIfUnfocused: false) }
+
+    private func scheduleSave(onlyIfUnfocused: Bool) {
         guard !selectingType else { return }
         let generation = saveGeneration
         DispatchQueue.main.async {
-            if editing && generation == saveGeneration && !selectingType { _ = saveClock() }
+            if editing && generation == saveGeneration && !selectingType
+                && (!onlyIfUnfocused || focusedDigit == nil) { _ = saveClock() }
         }
     }
 
     private func beginEditing() {
         model.refresh()
-        initialClock = storedArrival.map { model.timeLabel($0.time) } ?? ""
-        clockText = initialClock
+        clockEdit = ArrivalClockEdit(existingTime: storedArrival?.time, now: model.now,
+                                     timeZone: model.calendar.timeZone)
         editDay = model.dayKey(model.now)
         model.errorMessage = nil
         editing = true
-        clockFocused = true
+        focusedDigit = 0
     }
 
     @discardableResult private func saveClock(dayType: ManualDayType? = nil) -> Bool {
         guard editing else { return dayType.map { model.setDayType($0) } ?? true }
         let saved: Bool
-        if clockText == initialClock {
+        guard let clockEdit else { return false }
+        if !clockEdit.needsSave {
             saved = dayType.map { model.setDayType($0) } ?? true
         } else {
-            saved = model.saveManualClockText(clockText, forDay: editDay, dayType: dayType)
+            saved = model.saveManualClockText(clockEdit.text, forDay: editDay, dayType: dayType)
         }
-        if saved { editing = false; clockFocused = false }
+        if saved { editing = false; focusedDigit = nil }
         return saved
+    }
+
+    private var clockEditor: some View {
+        HStack(spacing: 0) {
+            ForEach(0..<4) { index in
+                if index == 2 { Text(":").frame(width: 9) }
+                VStack(spacing: 0) {
+                    digitButton(at: index, delta: 1, symbol: "plus")
+                    TextField("0", text: Binding(
+                        get: { clockEdit?.digits[index] ?? "" },
+                        set: { value in clockEdit?.replaceDigit(at: index, with: value) }))
+                        .textFieldStyle(.plain).multilineTextAlignment(.center)
+                        .frame(width: 20, height: 34)
+                        .focused($focusedDigit, equals: index)
+                        .background(focusedDigit == index ? accent.opacity(0.12) : .clear,
+                                    in: RoundedRectangle(cornerRadius: 4))
+                        .accessibilityLabel(digitLabel(index))
+                        .onSubmit { _ = saveClock() }
+                        .onExitCommand { editing = false; focusedDigit = nil; model.errorMessage = nil }
+                    digitButton(at: index, delta: -1, symbol: "minus")
+                }.frame(width: 20)
+            }
+        }.font(.system(size: 31, weight: .semibold, design: .rounded))
+            .monospacedDigit().foregroundStyle(accent)
+            .background(ClockClickAwayMonitor(onClickAway: scheduleSave))
+    }
+
+    private func digitButton(at index: Int, delta: Int, symbol: String) -> some View {
+        Button {
+            clockEdit?.adjustDigit(at: index, by: delta)
+            focusedDigit = index
+        } label: {
+            Image(systemName: symbol).font(.system(size: 9, weight: .semibold))
+                .frame(width: 20, height: 12).contentShape(Rectangle())
+        }.buttonStyle(.plain)
+            .background(accent.opacity(0.09), in: RoundedRectangle(cornerRadius: 3))
+            .disabled(!(clockEdit?.canAdjustDigit(at: index, by: delta) ?? false))
+            .accessibilityLabel(digitLabel(index) + L(delta > 0 ? " 증가" : " 감소", delta > 0 ? " increase" : " decrease"))
+    }
+
+    private func digitLabel(_ index: Int) -> String {
+        [L("시 십의 자리", "Hour tens"), L("시 일의 자리", "Hour units"),
+         L("분 십의 자리", "Minute tens"), L("분 일의 자리", "Minute units")][index]
     }
 
     private var storedArrival: Arrival? { model.state.arrivals[model.dayKey(model.now)] }
     private var selectedLocale: Locale { _ = language.choice; return displayLocale }
-    private func timeColumn(_ label: String, time: String) -> some View {
+    private func timeColumn(_ label: String, time: String, timeTopInset: CGFloat = 0) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             Text(label).font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
             Text(time).font(.system(size: 31, weight: .semibold, design: .rounded))
                 .monospacedDigit().lineLimit(1).minimumScaleFactor(0.8).foregroundStyle(accent)
+                .padding(.top, timeTopInset)
         }.frame(maxWidth: .infinity, alignment: .leading)
     }
 }

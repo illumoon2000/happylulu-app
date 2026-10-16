@@ -22,12 +22,14 @@ public struct PluginRegistration: Identifiable {
     public let controller: any PluginController
     public let adapter: any FeatureAdapter
     public let symbol: String
+    public let setEnabled: (@MainActor (Bool) -> Void)?
     public let summaryKorean: String
     public let summaryEnglish: String
     @MainActor
     public init(controller: any PluginController, adapter: any FeatureAdapter, symbol: String, summary: String,
-         englishSummary: String? = nil) {
+         englishSummary: String? = nil, setEnabled: (@MainActor (Bool) -> Void)? = nil) {
         id = controller.descriptor.id; self.controller = controller; self.adapter = adapter
+        self.setEnabled = setEnabled
         self.symbol = symbol; self.summaryKorean = summary; self.summaryEnglish = englishSummary ?? summary
     }
 }

@@ -12,13 +12,11 @@ import AppPluginCore
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var statusItem: NSStatusItem!
     private let popover = NSPopover()
-    private let calendarSync = CalendarSyncModel()
+    private let calendarSync = CalendarSyncModel(runtimeAllowed: false)
     private let pluginPresentations = PluginSettingsPresentationRegistry()
     private lazy var plugins: PluginManagerModel = {
-        let manager = PluginManagerModel(defaultAdapter: DefaultFeatureAdapter(sync: calendarSync))
-        BundledPlugins.register(in: PluginHostContext(registry: manager.registry,
-            presentations: pluginPresentations, register: manager.register, rollback: manager.rollbackRegistration, localize: L),
-            onFailure: manager.reportRegistrationFailure)
+        let manager = PluginManagerModel(defaultAdapter: DefaultFeatureAdapter(), catalogStore: .standard)
+        manager.configureCatalog(sync: calendarSync, presentations: pluginPresentations)
         return manager
     }()
     private lazy var model = AppModel(featureRouter: plugins.router)
@@ -71,10 +69,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             }
         }
         let firstLaunch = !model.state.didOfferLoginItem
-        model.observeFeatures(plugins)
-        model.start(loginObservedAt: loginObservedAt)
-        calendarSync.start()
-        plugins.start()
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            if self.plugins.needsLegacyMigration {
+                do {
+                    let calendarConfigured = try await self.calendarSync.legacyConfigured()
+                    self.plugins.migrateLegacy(calendarConfigured: calendarConfigured,
+                        daouConfigured: try BundledPlugins.legacyDaouConfigured(),
+                        detectsHalfDays: self.model.state.detectHalfDaysFromCalendar)
+                } catch { self.plugins.reportMigrationFailure() }
+            }
+            self.model.observeFeatures(self.plugins)
+            self.model.start(loginObservedAt: self.loginObservedAt)
+            self.plugins.start()
+        }
         updater.canInstallNow = { [weak self] in
             guard let self else { return false }
             return !self.model.isProcessingAttendance && !self.calendarSync.isRunning && !self.plugins.isRunning
@@ -139,7 +147,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         return .terminateNow
     }
 
-    func applicationWillTerminate(_ notification: Notification) { plugins.stop() }
+    func applicationWillTerminate(_ notification: Notification) { plugins.stop(); calendarSync.setRuntimeAllowed(false) }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         openSettings()

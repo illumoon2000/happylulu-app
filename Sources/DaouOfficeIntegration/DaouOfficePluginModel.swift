@@ -32,6 +32,8 @@ final class DaouOfficePluginModel: ObservableObject {
     private var task: Task<Void, Never>?
     private var generation = 0
     private var failures = 0
+    private var moduleEnabled = true
+    private var savedPasswordLoaded = false
     private var started = false
     private var registered = false
     private let localize: PluginLocalizer
@@ -53,12 +55,12 @@ final class DaouOfficePluginModel: ObservableObject {
               let draft = try? DaouOfficeConfiguration(enabled: true, address: address, loginID: loginID) else { return false }
         return draft.credentialKey == configuration.credentialKey && password.isEmpty
     }
-    var canRefresh: Bool { enabled && !isRunning && captchaChallenge == nil && matchesSavedConnection }
+    var canRefresh: Bool { moduleEnabled && enabled && !isRunning && captchaChallenge == nil && matchesSavedConnection }
     var canSubmitCaptcha: Bool {
-        enabled && !isRunning && captchaChallenge != nil && matchesSavedConnection &&
+        moduleEnabled && enabled && !isRunning && captchaChallenge != nil && matchesSavedConnection &&
             !captchaAnswer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
-    var canReloadCaptcha: Bool { enabled && !isRunning && captchaChallenge != nil && matchesSavedConnection }
+    var canReloadCaptcha: Bool { moduleEnabled && enabled && !isRunning && captchaChallenge != nil && matchesSavedConnection }
 
     private enum Operation {
         case refresh
@@ -68,6 +70,7 @@ final class DaouOfficePluginModel: ObservableObject {
     init(store: DaouOfficeConfigurationStore = DaouOfficeConfigurationStore(),
          secrets: any PluginSecretStore = DaouOfficeSecretStore(),
          registry: PluginRegistry = PluginRegistry(),
+         loadSavedPasswordAtInitialization: Bool = true,
          localize: @escaping PluginLocalizer = { korean, _ in korean },
          makeClient: @escaping @Sendable (DaouOfficeConfiguration, any PluginSecretStore) -> DaouOfficeAPIClient = {
              DaouOfficeAPIClient(configuration: $0, secrets: $1, transport: DaouOfficeCurlTransport(), log: .standard)
@@ -80,15 +83,22 @@ final class DaouOfficePluginModel: ObservableObject {
             if let config = try store.load() {
                 configuration = config; address = config.baseURL.absoluteString; loginID = config.loginID
                 enabled = config.enabled; enableRequested = config.enabled
-                do { hasSavedPassword = try secrets.load(for: config.credentialKey)?.isEmpty == false }
-                catch { failure = .credentials }
+                if loadSavedPasswordAtInitialization { loadSavedPassword() }
             }
         } catch { failure = .configuration }
     }
 
+    private func loadSavedPassword() {
+        guard !savedPasswordLoaded, let configuration else { return }
+        savedPasswordLoaded = true
+        do { hasSavedPassword = try secrets.load(for: configuration.credentialKey)?.isEmpty == false }
+        catch { failure = .credentials }
+    }
+
     func start() {
-        guard registered, !started else { return }
+        guard registered, moduleEnabled, !started else { return }
         started = true
+        if enabled { loadSavedPassword() }
         timer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 guard let self, let next = self.nextRunAt, next <= Date(), self.enabled else { return }
@@ -113,7 +123,7 @@ final class DaouOfficePluginModel: ObservableObject {
     }
 
     func saveAndRefresh() {
-        guard registered, enableRequested, !isRunning else { return }
+        guard registered, moduleEnabled, enableRequested, !isRunning else { return }
         do {
             let config = try DaouOfficeConfiguration(enabled: true, address: address, loginID: loginID)
             let oldPassword = try secrets.load(for: config.credentialKey)
@@ -257,11 +267,16 @@ final class DaouOfficePluginModel: ObservableObject {
         captchaChallenge = nil; captchaRequired = false; captchaAnswer = ""
         lastLoginDiagnostic = nil; captchaLoginRejected = false
     }
+    func setModuleEnabled(_ value: Bool) {
+        moduleEnabled = value
+        if !value { stop(); enabled = false; snapshot = nil }
+        else { enabled = configuration?.enabled == true; enableRequested = configuration?.enabled == true }
+    }
     func stop() { stopRefresh(); timer?.invalidate(); timer = nil; started = false }
 }
 
 extension DaouOfficePluginModel: PluginController {
-    var descriptor: PluginDescriptor { PluginDescriptor(id: "daouoffice", name: localize("다우오피스", "Daouoffice")) }
+    var descriptor: PluginDescriptor { PluginDescriptor(id: "daouoffice", name: localize("다우오피스", "Daouoffice"), author: PluginAuthors.daouOffice) }
     var changes: AnyPublisher<Void, Never> { objectWillChange.map { _ in () }.eraseToAnyPublisher() }
     var connectionState: PluginConnectionState {
         if isRunning { return .connecting }

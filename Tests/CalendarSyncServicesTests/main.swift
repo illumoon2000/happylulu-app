@@ -25,6 +25,9 @@ actor FakeProvider: CalendarProvider {
     private var loseOneDeleteReply = false
     private var hiddenFromList = false
     private var unavailableOnMissing = false
+    private var fetchHold: CheckedContinuation<Void, Never>?
+    private var holdNextFetch = false
+    private var fetchStarted = false
     private var fetchError: Error?
     private var recoveryError: SystemCalendarError?
     private var applyError: SystemCalendarError?
@@ -34,6 +37,9 @@ actor FakeProvider: CalendarProvider {
         self.events = Dictionary(uniqueKeysWithValues: events.map { ($0.id, $0) })
     }
 
+    func pauseFetch() { holdNextFetch = true }
+    func isFetchHeld() -> Bool { fetchStarted && fetchHold != nil }
+    func resumeFetch() { fetchHold?.resume(); fetchHold = nil }
     func setLostReply() { loseOneCreateReply = true }
     func setLostDeleteReply() { loseOneDeleteReply = true }
     func setHiddenFromList() { hiddenFromList = true }
@@ -47,6 +53,10 @@ actor FakeProvider: CalendarProvider {
     func items() -> [CalendarEvent] { Array(events.values) }
 
     func fetchChanges(cursor: String?, pageToken: String?) async throws -> CalendarChangePage {
+        if holdNextFetch {
+            holdNextFetch = false; fetchStarted = true
+            await withCheckedContinuation { fetchHold = $0 }
+        }
         if let fetchError { throw fetchError }
         return CalendarChangePage(changes: hiddenFromList ? [] : events.values.map(CalendarChange.upsert),
                                   nextCursor: side == .google ? "next" : nil,
@@ -120,6 +130,30 @@ func configured(_ store: SyncStore, enabled: Bool = false) async throws {
     state.configuration.enabled = enabled
     state.configuration.previewAccepted = enabled
     try await store.save(state)
+}
+
+func testCancelledSyncDoesNotStartLaterWrites() async throws {
+    try await withStore { store in
+        try await configured(store, enabled: true)
+        let before = try JSONEncoder().encode(await store.load())
+        let daou = FakeProvider(side: .daou, events: [sample("cancelled")])
+        let google = FakeProvider(side: .google)
+        await daou.pauseFetch()
+        let coordinator = SyncCoordinator(store: store, daou: daou, google: google)
+        let task = Task { try await coordinator.run(allowWrites: true) }
+        while !(await daou.isFetchHeld()) { await Task.yield() }
+        task.cancel()
+        await daou.resumeFetch()
+        do { _ = try await task.value; require(false, "Cancelled sync must stop") }
+        catch is CancellationError {}
+        let writes = await google.writes
+        require(writes == 0, "Disabling during fetch must prevent later calendar writes")
+        let after = try await store.load()
+        let decodedBefore = try JSONDecoder().decode(CalendarSyncState.self, from: before)
+        require(after.mappings.count == decodedBefore.mappings.count && after.pendingOperations.isEmpty
+            && after.lastErrorCode == nil && after.consecutiveFailures == 0,
+            "Cancellation must preserve the existing ledger without recording a retry failure")
+    }
 }
 
 func testPreviewAndBothDirections() async throws {
@@ -619,6 +653,7 @@ func testGoogleSlashTitleIsExcluded() throws {
 }
 
 let checks: [(String, () async throws -> Void)] = [
+    ("cancelled sync prevents later writes", testCancelledSyncDoesNotStartLaterWrites),
     ("display read selection and range boundaries", testDisplayReadSelectionAndRangeBoundaries),
     ("preview preserves failure history", testSuccessfulPreviewKeepsFailureHistory),
     ("coordinator persists protected origin", testCoordinatorPersistsInvitationProtection),

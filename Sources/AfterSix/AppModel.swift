@@ -20,6 +20,9 @@ final class AppModel: ObservableObject {
     private var lastPeriodicRefreshAt: Date?
     private let attendance: any AttendanceAdapter
     private let featureRouter: FeatureAdapterRouter
+    private weak var pluginManager: PluginManagerModel?
+    private var observedDetectionEnabled = true
+    private var detectionAllowed: Bool { pluginManager.map { !$0.catalogConfigured || ($0.canChangeCatalog && $0.isEnabled("leave-detection") && $0.allowsExternalIntegrations) } ?? true }
     private var featureObservation: AnyCancellable?
     private var observedHalfDaySource: String
     private var observedHalfDaySnapshotAt: Date?
@@ -29,6 +32,7 @@ final class AppModel: ObservableObject {
     private var pendingArrivals: [(at: Date, isLogin: Bool)] = []
     private var processingArrivals = false
     private var calendarDetectionRequestGeneration = 0
+    private var halfDayObservationGeneration = 0
 
     var isProcessingAttendance: Bool { processingArrivals }
 
@@ -66,7 +70,7 @@ final class AppModel: ObservableObject {
         return attendance.earlyLeaveMinutes(on: now, timeZone: calendar.timeZone)
     }
     var detectedModeToday: WorkdayMode? {
-        calendarModeDay == attendance.dayKey(now, calendar: calendar) ? calendarHalfDayMode : nil
+        detectionAllowed && calendarModeDay == attendance.dayKey(now, calendar: calendar) ? calendarHalfDayMode : nil
     }
     var progress: Double {
         guard let arrival, let departure else { return 0 }
@@ -127,24 +131,27 @@ final class AppModel: ObservableObject {
     }
 
     func observeFeatures(_ manager: PluginManagerModel) {
+        pluginManager = manager
         featureObservation = manager.$revision.sink { [weak self, weak manager] _ in
             Task { @MainActor [weak self, weak manager] in
                 guard let self, let manager else { return }
                 let source = self.featureRouter.selectedID(for: .halfDay)
                 let fetchedAt = manager.registry.snapshot(for: source)?.fetchedAt
-                guard source != self.observedHalfDaySource || fetchedAt != self.observedHalfDaySnapshotAt else { return }
+                let detectionChanged = self.observedDetectionEnabled != self.detectionAllowed
+                self.observedDetectionEnabled = self.detectionAllowed
+                guard detectionChanged || source != self.observedHalfDaySource || fetchedAt != self.observedHalfDaySnapshotAt else { return }
                 // Account/session replacement clears a plugin's snapshot without changing its source ID.
                 // A temporary fetch failure keeps that snapshot, so it still preserves the last good mode.
                 let snapshotCleared = self.observedHalfDaySnapshotAt != nil && fetchedAt == nil
-                if source != self.observedHalfDaySource || snapshotCleared {
+                if detectionChanged || source != self.observedHalfDaySource || snapshotCleared {
                     self.observedHalfDaySource = source
-                    self.calendarDetectionRequestGeneration += 1
+                    self.halfDayObservationGeneration += 1
                     self.calendarHalfDayMode = nil; self.calendarModeDay = nil
                     self.calendarHalfDayMessage = nil; self.lastCalendarCheckAt = nil
-                    if self.state.detectHalfDaysFromCalendar { self.applyCalendarHalfDay(nil, checkedAt: Date()) }
+                    if self.state.detectHalfDaysFromCalendar && manager.canChangeCatalog { self.applyCalendarHalfDay(nil, checkedAt: Date()) }
                 }
                 self.observedHalfDaySnapshotAt = fetchedAt
-                if self.state.detectHalfDaysFromCalendar { await self.refreshCalendarHalfDay(force: true) }
+                if self.state.detectHalfDaysFromCalendar && self.detectionAllowed { await self.refreshCalendarHalfDay(force: true) }
             }
         }
     }
@@ -211,7 +218,7 @@ final class AppModel: ObservableObject {
         )
         if let loginObservedAt { enqueueArrival(at: loginObservedAt, isLogin: true) }
         startCountdownTimer()
-        if state.detectHalfDaysFromCalendar { Task { await refreshCalendarHalfDay(force: true) } }
+        if state.detectHalfDaysFromCalendar && detectionAllowed { Task { await refreshCalendarHalfDay(force: true) } }
         // Register once; never fight a user's later System Settings choice.
         if writable, allowsLoginItemChanges, !state.didOfferLoginItem {
             setLoginEnabled(true)
@@ -222,7 +229,7 @@ final class AppModel: ObservableObject {
         now = Date()
         lastPeriodicRefreshAt = now
         loginStatus = SMAppService.mainApp.status
-        if state.detectHalfDaysFromCalendar,
+        if state.detectHalfDaysFromCalendar && detectionAllowed,
            lastCalendarCheckAt.map({ now.timeIntervalSince($0) >= 300 }) ?? true {
             Task { await refreshCalendarHalfDay() }
         }
@@ -254,8 +261,11 @@ final class AppModel: ObservableObject {
         while !pendingArrivals.isEmpty {
             let event = pendingArrivals.removeFirst()
             let receivedAt = event.at
+            let detectionGeneration = calendarDetectionRequestGeneration
+            let observationGeneration = halfDayObservationGeneration
+            let moduleGeneration = pluginManager?.leaveDetectionGeneration
             var observation = CalendarModeObservation.confirmed(nil)
-            if state.detectHalfDaysFromCalendar {
+            if state.detectHalfDaysFromCalendar && detectionAllowed {
                 do {
                     observation = .confirmed(HalfDayRecognition.mode(from: try await featureRouter.halfDayTitles(on: receivedAt, timeZone: calendar.timeZone)))
                 } catch {
@@ -265,7 +275,7 @@ final class AppModel: ObservableObject {
             }
             // A setting change while EventKit was pending takes effect before
             // this arrival is saved; FIFO keeps the first observed login/unlock first.
-            let detected = state.detectHalfDaysFromCalendar
+            let detected = state.detectHalfDaysFromCalendar && detectionAllowed && detectionGeneration == calendarDetectionRequestGeneration && observationGeneration == halfDayObservationGeneration && moduleGeneration == pluginManager?.leaveDetectionGeneration
                 ? observation.resolved(previous: detectedModeToday) : nil
             commit { state in
                 if event.isLogin {
@@ -274,7 +284,7 @@ final class AppModel: ObservableObject {
                     _ = try attendance.apply(.unlock(at: receivedAt, mode: detected), to: &state, calendar: calendar)
                 }
             }
-            if state.detectHalfDaysFromCalendar, case let .confirmed(mode) = observation {
+            if state.detectHalfDaysFromCalendar && detectionAllowed && detectionGeneration == calendarDetectionRequestGeneration && observationGeneration == halfDayObservationGeneration && moduleGeneration == pluginManager?.leaveDetectionGeneration, case let .confirmed(mode) = observation {
                 lastCalendarCheckAt = receivedAt
                 applyCalendarHalfDay(mode, checkedAt: receivedAt)
             }
@@ -309,6 +319,7 @@ final class AppModel: ObservableObject {
     func setCalendarHalfDayDetection(_ enabled: Bool) {
         calendarDetectionRequestGeneration += 1
         let requestGeneration = calendarDetectionRequestGeneration
+        let moduleGeneration = pluginManager?.leaveDetectionGeneration
         if !enabled {
             guard commit({ $0.detectHalfDaysFromCalendar = false }) else { return }
             calendarHalfDayMode = nil
@@ -320,15 +331,26 @@ final class AppModel: ObservableObject {
             }
             return
         }
+        guard detectionAllowed else {
+            calendarHalfDayMessage = L("휴가 자동 인식 플러그인을 먼저 켜 주세요.", "Enable the leave recognition plugin first.")
+            return
+        }
         Task {
             do {
                 try await featureRouter.requestHalfDayAccess()
-                guard requestGeneration == calendarDetectionRequestGeneration else { return }
+                guard detectionAllowed, requestGeneration == calendarDetectionRequestGeneration,
+                      moduleGeneration == pluginManager?.leaveDetectionGeneration else { return }
                 guard commit({ $0.detectHalfDaysFromCalendar = true }) else { return }
                 await refreshCalendarHalfDay(force: true)
             } catch {
-                if requestGeneration == calendarDetectionRequestGeneration {
-                    calendarHalfDayMessage = error.localizedDescription
+                if requestGeneration == calendarDetectionRequestGeneration, detectionAllowed,
+                   moduleGeneration == pluginManager?.leaveDetectionGeneration {
+                    if let failure = error as? FeatureAdapterFailure,
+                       failure == .unavailable || failure == .missingSnapshot {
+                        guard commit({ $0.detectHalfDaysFromCalendar = true }) else { return }
+                        calendarHalfDayMessage = L("반차 일정을 읽을 연결을 선택하고 조회해 주세요.",
+                            "Select and refresh a calendar source for half-day recognition.")
+                    } else { calendarHalfDayMessage = error.localizedDescription }
                 }
             }
         }
@@ -337,23 +359,24 @@ final class AppModel: ObservableObject {
     func checkCalendarHalfDayNow() { Task { await refreshCalendarHalfDay(force: true) } }
 
     private func refreshCalendarHalfDay(force: Bool = false) async {
-        guard state.detectHalfDaysFromCalendar else { return }
+        guard state.detectHalfDaysFromCalendar, detectionAllowed else { return }
         let checkedAt = Date()
         if !force, let lastCalendarCheckAt, checkedAt.timeIntervalSince(lastCalendarCheckAt) < 300 { return }
         lastCalendarCheckAt = checkedAt
         halfDayRefreshGeneration += 1
         let request = halfDayRefreshGeneration
         let detection = calendarDetectionRequestGeneration
+        let moduleGeneration = pluginManager?.leaveDetectionGeneration
         do {
             let mode = HalfDayRecognition.mode(from: try await featureRouter.halfDayTitles(on: checkedAt, timeZone: calendar.timeZone))
-            guard state.detectHalfDaysFromCalendar, request == halfDayRefreshGeneration,
-                  detection == calendarDetectionRequestGeneration else { return }
+            guard state.detectHalfDaysFromCalendar, detectionAllowed, request == halfDayRefreshGeneration,
+                  detection == calendarDetectionRequestGeneration, moduleGeneration == pluginManager?.leaveDetectionGeneration else { return }
             applyCalendarHalfDay(mode, checkedAt: checkedAt)
         } catch is CancellationError {
         } catch {
             // A failed read is not evidence that the calendar event disappeared.
             // Keep the last successful result until a confirmed fresh read.
-            if request == halfDayRefreshGeneration, detection == calendarDetectionRequestGeneration {
+            if request == halfDayRefreshGeneration, detection == calendarDetectionRequestGeneration, moduleGeneration == pluginManager?.leaveDetectionGeneration {
                 calendarHalfDayMessage = error.localizedDescription
             }
         }

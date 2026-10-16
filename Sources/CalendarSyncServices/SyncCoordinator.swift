@@ -37,6 +37,7 @@ public actor SyncCoordinator {
         guard !running else { throw SyncCoordinatorError.alreadyRunning }
         running = true
         defer { running = false }
+        try Task.checkCancellation()
         var state = try await store.load()
         guard state.configuration.hasSelectedPair else { throw SyncCoordinatorError.notConfigured }
         guard state.configuration.enabled, state.configuration.previewAccepted else {
@@ -131,7 +132,9 @@ public actor SyncCoordinator {
         if let operation {
             let pending = PendingSyncOperation(id: mappingID, operation: operation, newBaseline: baseline)
             state.pendingOperations[mappingID] = pending
+            try Task.checkCancellation()
             try await store.save(state)
+            try Task.checkCancellation()
             let receipt = try await provider(side.opposite).apply(operation)
             applyReceipt(receipt, for: pending, to: &state)
         } else {
@@ -139,6 +142,7 @@ public actor SyncCoordinator {
             state.mappings[mappingID] = mapping
             state.conflicts.removeValue(forKey: mappingID)
         }
+        try Task.checkCancellation()
         try await store.save(state)
     }
 
@@ -153,6 +157,7 @@ public actor SyncCoordinator {
 
     private func refreshedObservation(_ side: CalendarSide, eventID: String?) async throws -> CalendarObservation {
         guard let eventID else { return .absent }
+        try Task.checkCancellation()
         return try await provider(side).observe(eventID: eventID)
     }
 
@@ -160,6 +165,7 @@ public actor SyncCoordinator {
         guard !running else { throw SyncCoordinatorError.alreadyRunning }
         running = true
         defer { running = false }
+        try Task.checkCancellation()
         var state = try await store.load()
         guard state.configuration.hasSelectedPair else { throw SyncCoordinatorError.notConfigured }
         if allowWrites, (!state.configuration.enabled || !state.configuration.previewAccepted) {
@@ -180,6 +186,7 @@ public actor SyncCoordinator {
                 state.initialWriteAuthorized = nil
                 state.configuration.previewAccepted = false
                 state.configuration.enabled = false
+                try Task.checkCancellation()
                 try await store.save(state)
             }
             if allowWrites {
@@ -198,6 +205,7 @@ public actor SyncCoordinator {
                         state.lastPreview = held
                         state.lastErrorCode = "initialPendingUncertain"
                         state.nextRunAt = Date().addingTimeInterval(3600)
+                        try Task.checkCancellation()
                         try await store.save(state)
                         return held
                     }
@@ -217,6 +225,7 @@ public actor SyncCoordinator {
             }
             try await fetchObservations(&state)
             seedMappings(&state)
+            try Task.checkCancellation()
             try await store.save(state)
             if allowWrites && needsFirstSystemApproval {
                 guard state.lastPreview != nil,
@@ -298,9 +307,11 @@ public actor SyncCoordinator {
                         // durable together. A failure before this point must
                         // compare the preview again on the next attempt.
                         if needsFirstSystemApproval { state.initialWriteAuthorized = true }
+                        try Task.checkCancellation()
                         try await store.save(state)
                         let receipt: CalendarWriteReceipt
                         do {
+                            try Task.checkCancellation()
                             receipt = try await provider(target).apply(operation)
                         } catch SystemCalendarError.invalidDate {
                             summary.held += 1
@@ -312,6 +323,7 @@ public actor SyncCoordinator {
                             continue
                         }
                         applyReceipt(receipt, for: pending, to: &state)
+                        try Task.checkCancellation()
                         try await store.save(state)
                         summary.completed += 1
                     }
@@ -334,9 +346,11 @@ public actor SyncCoordinator {
             state.lastErrorCode = firstSystemCycle && !state.pendingOperations.isEmpty
                 ? "initialPendingUncertain" : nil
             state.consecutiveFailures = 0
+            try Task.checkCancellation()
             try await store.save(state)
             return summary
         } catch {
+            if error is CancellationError || Task.isCancelled { throw CancellationError() }
             if case SyncCoordinatorError.previewChanged = error {
                 state.configuration.enabled = false
                 state.configuration.previewAccepted = false
@@ -347,6 +361,7 @@ public actor SyncCoordinator {
                 state.lastFailureCode = "previewChanged"
                 state.lastFailureAt = Date()
                 state.pauseReason = "previewChanged"
+                try Task.checkCancellation()
                 try await store.save(state)
                 throw error
             }
@@ -364,6 +379,7 @@ public actor SyncCoordinator {
                 let delay = retryAfterDelay(from: error) ?? fallback
                 state.nextRunAt = Date().addingTimeInterval(delay)
             }
+            try Task.checkCancellation()
             try? await store.save(state)
             throw error
         }
@@ -445,6 +461,7 @@ public actor SyncCoordinator {
     }
 
     private func fetchObservations(_ state: inout CalendarSyncState) async throws {
+        try Task.checkCancellation()
         let daouPage = try await daou.fetchChanges(cursor: nil, pageToken: nil)
         guard daouPage.nextPageToken == nil else { throw CalendarObservationError.incompletePage }
         var daouEvents: [String: CalendarEvent] = daouPage.isFullSnapshot ? [:] : state.daouObserved
@@ -458,9 +475,11 @@ public actor SyncCoordinator {
         let googlePage: CalendarChangePage
         let didFullRefresh: Bool
         do {
+            try Task.checkCancellation()
             googlePage = try await google.fetchChanges(cursor: state.googleCursor, pageToken: nil)
             didFullRefresh = state.googleCursor == nil
         } catch CalendarHTTPError.httpStatus(410, _) {
+            try Task.checkCancellation()
             googlePage = try await google.fetchChanges(cursor: nil, pageToken: nil)
             didFullRefresh = true
         }
@@ -478,6 +497,7 @@ public actor SyncCoordinator {
         state.daouObserved = daouEvents
         state.googleObserved = googleEvents
         state.googleCursor = googlePage.isFullSnapshot ? nil : googlePage.nextCursor
+        try Task.checkCancellation()
         try await store.save(state)
     }
 
@@ -580,6 +600,7 @@ public actor SyncCoordinator {
         guard let eventID else { return .absent }
         let cached = side == .daou ? state.daouObserved[eventID] : state.googleObserved[eventID]
         if let cached { return .present(cached) }
+        try Task.checkCancellation()
         return try await provider(side).observe(eventID: eventID)
     }
 
@@ -615,13 +636,16 @@ public actor SyncCoordinator {
                 continue
             }
             do {
+                try Task.checkCancellation()
                 let receipt = try await provider(pending.operation.target).recover(pending.operation)
                 applyReceipt(receipt, for: pending, to: &state)
+                try Task.checkCancellation()
                 try await store.save(state)
                 recovery.confirmedWrites += 1
             } catch SystemCalendarError.writeNotAttempted {
                 guard case .create = pending.operation else { throw SystemCalendarError.writeNotAttempted }
                 state.pendingOperations.removeValue(forKey: pending.id)
+                try Task.checkCancellation()
                 try await store.save(state)
             } catch SystemCalendarError.invalidDate {
                 continue
@@ -630,17 +654,21 @@ public actor SyncCoordinator {
             } catch CalendarCodecError.unsupportedEvent {
                 continue
             } catch {
+                if error is CancellationError || Task.isCancelled { throw CancellationError() }
                 guard let targetID = pending.operation.targetEventID else { throw error }
+                try Task.checkCancellation()
                 let observation = try await provider(pending.operation.target).observe(eventID: targetID)
                 switch (pending.operation, observation, pending.newBaseline) {
                 case (.update, .present(let current), .content(let content)) where current.content == content:
                     applyReceipt(CalendarWriteReceipt(eventID: current.id, version: current.version),
                                  for: pending, to: &state)
+                    try Task.checkCancellation()
                     try await store.save(state)
                     recovery.confirmedWrites += 1
                 case (.delete, .confirmedDeleted, .deleted):
                     applyReceipt(CalendarWriteReceipt(eventID: targetID, version: nil),
                                  for: pending, to: &state)
+                    try Task.checkCancellation()
                     try await store.save(state)
                     recovery.confirmedWrites += 1
                 default:

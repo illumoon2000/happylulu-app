@@ -4,6 +4,7 @@ import Combine
 import AppPluginCore
 import AppPluginHost
 import AfterSixCore
+import CalendarSyncServices
 
 func fixtureDate(_ value: String) throws -> Date {
     guard let date = ISO8601DateFormatter().date(from: value) else { throw FeatureAdapterFailure.unsupported }
@@ -32,16 +33,27 @@ final class ProbeAdapter: FeatureAdapter {
     let descriptor: FeatureAdapterDescriptor
     var events: [FeatureCalendarEvent] = []
     var titles: [String] = []
+    var accessFailure: Error?
+    var pausesAccess = false
+    var heldAccess: CheckedContinuation<Void, Error>?
     var held: CheckedContinuation<[FeatureCalendarEvent], Error>?
     var pauses = false
+    var pausesHalfDays = false
+    var heldHalfDay: CheckedContinuation<[String], Error>?
     init(_ id: String) { descriptor = FeatureAdapterDescriptor(id: id, name: id, features: Set(AppFeature.allCases)) }
     func calendarEvents(in interval: DateInterval) async throws -> [FeatureCalendarEvent] {
         if pauses { return try await withCheckedThrowingContinuation { held = $0 } }
         return events
     }
     func leaveSnapshot() -> PluginSnapshot? { nil }
-    func requestHalfDayAccess() async throws {}
-    func halfDayTitles(on day: Date, timeZone: TimeZone) async throws -> [String] { titles }
+    func requestHalfDayAccess() async throws {
+        if pausesAccess { try await withCheckedThrowingContinuation { heldAccess = $0 } }
+        if let accessFailure { throw accessFailure }
+    }
+    func halfDayTitles(on day: Date, timeZone: TimeZone) async throws -> [String] {
+        if pausesHalfDays { return try await withCheckedThrowingContinuation { heldHalfDay = $0 } }
+        return titles
+    }
 }
 
 @MainActor
@@ -162,6 +174,177 @@ private func checkHalfDaySessionInvalidation(root: URL) async throws {
     print("PASS half-day session invalidation: same source, CAPTCHA wait, automatic reset, manual preservation, transient failure and recovery")
 }
 
+actor ProbeCalendarAccess: CalendarSyncAccess {
+    private(set) var requests = 0
+    private(set) var reads = 0
+    func requestAccess() { requests += 1 }
+    func writableCalendars() -> [SystemCalendarSummary] { reads += 1; return [] }
+    func counts() -> (Int, Int) { (requests, reads) }
+}
+
+@MainActor
+private func checkOptionalCatalog(root: URL) async throws {
+    let access = ProbeCalendarAccess()
+    let sync = CalendarSyncModel(calendarAccess: access, runtimeAllowed: false)
+    let store = PluginCatalogStore(url: root.appendingPathComponent("optional.json"))
+    let manager = PluginManagerModel(defaultAdapter: DefaultFeatureAdapter(),
+        routingStore: FeatureRoutingStore(url: nil), catalogStore: store)
+    let presentations = PluginSettingsPresentationRegistry()
+    manager.configureCatalog(sync: sync, presentations: presentations, modules: [], allowsExternalIntegrations: false)
+    manager.start(); sync.start(); sync.prepareForDisplay()
+    await sync.requestCalendarAccess()
+    let initialCounts = await access.counts()
+    require(manager.installed.isEmpty && initialCounts == (0, 0) && !sync.runtimeAllowed,
+        "Fresh core-only startup must not read calendars or ask permission")
+    let noEvents = try await manager.router.calendarEvents(in: DateInterval(start: Date(), duration: 60))
+    require(noEvents == [],
+        "Core calendar fallback must be empty")
+    require(manager.catalog.first(where: { $0.id == "daouoffice" })?.author == "손정열"
+        && manager.catalog.first(where: { $0.id == "daouoffice" })?.available == false,
+        "Unavailable Daou build must retain truthful catalog metadata")
+    manager.install("mac-calendar")
+    require(manager.isInstalled("mac-calendar") && !manager.isEnabled("mac-calendar"), "Install and enable are distinct")
+    manager.setEnabled("mac-calendar", true)
+    require(manager.isEnabled("mac-calendar") && !sync.runtimeAllowed, "Dev catalog must never start external integrations")
+    manager.install("leave-detection"); manager.setEnabled("leave-detection", true)
+    let legacyState = AttendanceState()
+    let attendanceStore = StateStore(url: root.appendingPathComponent("optional-attendance.json"))
+    try attendanceStore.save(legacyState)
+    let attendance = AppModel(store: attendanceStore, featureRouter: manager.router, allowsLoginItemChanges: false)
+    attendance.observeFeatures(manager)
+    require(attendance.setDayType(.annualLeave), "Core manual day type must work with integrations blocked")
+    manager.setEnabled("mac-calendar", false)
+    require(manager.isInstalled("mac-calendar") && !manager.isEnabled("mac-calendar"), "Disable must preserve installation")
+    let restarted = PluginManagerModel(defaultAdapter: DefaultFeatureAdapter(), routingStore: FeatureRoutingStore(url: nil), catalogStore: store)
+    restarted.configureCatalog(sync: sync, presentations: PluginSettingsPresentationRegistry(), modules: [], allowsExternalIntegrations: false)
+    require(restarted.isInstalled("mac-calendar") && !restarted.isEnabled("mac-calendar") && restarted.isEnabled("leave-detection"),
+        "Independent optional states must survive restart")
+    let migrationStore = PluginCatalogStore(url: root.appendingPathComponent("migration.json"))
+    let migration = PluginManagerModel(defaultAdapter: DefaultFeatureAdapter(), routingStore: FeatureRoutingStore(url: nil), catalogStore: migrationStore)
+    migration.configureCatalog(sync: sync, presentations: PluginSettingsPresentationRegistry(), modules: [], allowsExternalIntegrations: false)
+    migration.migrateLegacy(calendarConfigured: true, daouConfigured: true, detectsHalfDays: true)
+    require(["mac-calendar", "daouoffice", "leave-detection"].allSatisfy { migration.isEnabled($0) },
+        "Legacy configured modules must migrate without disconnecting")
+    migration.setEnabled("daouoffice", false)
+    require(migration.isInstalled("daouoffice") && !migration.isEnabled("daouoffice"),
+        "Excluded builds must still allow disabling a legacy installed module")
+    migration.setEnabled("daouoffice", true)
+    require(!migration.isEnabled("daouoffice") && migration.message != nil,
+        "Excluded modules must not pretend to enable")
+    migration.setEnabled("mac-calendar", false)
+    let before = try Data(contentsOf: migrationStore.url!)
+    migration.migrateLegacy(calendarConfigured: true, daouConfigured: true, detectsHalfDays: true)
+    let after = try Data(contentsOf: migrationStore.url!)
+    require(before == after && !migration.isEnabled("mac-calendar"), "Migration must not rerun over an explicit disabled state")
+    let blockedURL = root.appendingPathComponent("catalog-blocker")
+    try Data("preserve".utf8).write(to: blockedURL)
+    let blocked = PluginManagerModel(defaultAdapter: DefaultFeatureAdapter(), routingStore: FeatureRoutingStore(url: nil),
+        catalogStore: PluginCatalogStore(url: blockedURL.appendingPathComponent("catalog.json")))
+    blocked.configureCatalog(sync: sync, presentations: PluginSettingsPresentationRegistry(), modules: [], allowsExternalIntegrations: false)
+    blocked.install("mac-calendar")
+    require(!blocked.isInstalled("mac-calendar") && blocked.message != nil, "Failed save must not pretend installation succeeded")
+    print("PASS optional modules: core-only startup, metadata, distinct install/enable, restart, migration, save failure, Dev isolation and manual attendance")
+}
+
+@MainActor
+private func checkUnreadableCatalogPreservesAttendance(root: URL) async throws {
+    for migrationFailed in [false, true] {
+        let suffix = migrationFailed ? "migration-failed" : "catalog-corrupt"
+        let catalogURL = root.appendingPathComponent(suffix + ".json")
+        let corrupt = Data("preserve corrupt catalog".utf8)
+        if !migrationFailed { try corrupt.write(to: catalogURL) }
+        let manager = PluginManagerModel(defaultAdapter: DefaultFeatureAdapter(), routingStore: FeatureRoutingStore(url: nil),
+            catalogStore: PluginCatalogStore(url: catalogURL))
+        let sync = CalendarSyncModel(calendarAccess: ProbeCalendarAccess(), runtimeAllowed: false)
+        manager.configureCatalog(sync: sync, presentations: PluginSettingsPresentationRegistry(), modules: [])
+        if migrationFailed { manager.reportMigrationFailure() }
+        let now = Date(), calendar = Calendar.current
+        let day = Attendance.dayKey(now, calendar: calendar)
+        let arrivalTime = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: now)!
+        var state = AttendanceState(); state.didOfferLoginItem = true; state.detectHalfDaysFromCalendar = true
+        state.arrivals[day] = Arrival(day: day, time: arrivalTime, source: .unlock,
+            timeZoneID: calendar.timeZone.identifier, mode: .afternoonHalf, modeSource: .automatic, earlyLeaveOverrideMinutes: 0)
+        let store = StateStore(url: root.appendingPathComponent(suffix + "-attendance.json"))
+        try store.save(state)
+        let bytesBefore = try Data(contentsOf: store.url)
+        let model = AppModel(store: store, featureRouter: manager.router, allowsLoginItemChanges: false)
+        model.observeFeatures(manager); model.refresh(); model.checkCalendarHalfDayNow()
+        for _ in 0..<40 { await Task.yield() }
+        let bytesAfter = try Data(contentsOf: store.url)
+        require(model.state == state && bytesBefore == bytesAfter && model.arrival?.mode == .afternoonHalf,
+            "Unreadable catalog or failed migration must preserve automatic attendance bytes and mode")
+        if !migrationFailed {
+            let preserved = try Data(contentsOf: catalogURL)
+            require(preserved == corrupt, "Corrupt catalog must remain unchanged alongside attendance")
+        }
+    }
+    print("PASS unreadable catalog/migration: automatic half-day attendance state and bytes preserved")
+}
+
+@MainActor
+private func checkLeaveGateInvalidation(root: URL) async throws {
+    let sync = CalendarSyncModel(calendarAccess: ProbeCalendarAccess(), runtimeAllowed: false)
+    let manager = PluginManagerModel(defaultAdapter: DefaultFeatureAdapter(), routingStore: FeatureRoutingStore(url: nil))
+    let controller = ProbeController("mac-calendar"), adapter = ProbeAdapter("mac-calendar")
+    controller.enabled = false
+    try manager.register(PluginRegistration(controller: controller, adapter: adapter, symbol: "calendar", summary: "Fixture",
+        setEnabled: { controller.enabled = $0 }))
+    manager.configureCatalog(sync: sync, presentations: PluginSettingsPresentationRegistry(), modules: [])
+    manager.install("mac-calendar"); manager.setEnabled("mac-calendar", true)
+    manager.install("leave-detection"); manager.setEnabled("leave-detection", true)
+    var state = AttendanceState(); state.didOfferLoginItem = true; state.detectHalfDaysFromCalendar = true
+    let store = StateStore(url: root.appendingPathComponent("leave-gate.json")); try store.save(state)
+    let model = AppModel(store: store, featureRouter: manager.router, allowsLoginItemChanges: false)
+    model.observeFeatures(manager)
+    // Let the initial observation settle, then hold a real in-flight title response.
+    for _ in 0..<20 { await Task.yield() }
+    adapter.pausesHalfDays = true
+    model.checkCalendarHalfDayNow()
+    try await waitForArchitecture("Half-day fixture never started") { adapter.heldHalfDay != nil }
+    manager.setEnabled("leave-detection", false)
+    manager.setEnabled("leave-detection", true)
+    adapter.pausesHalfDays = false
+    adapter.heldHalfDay?.resume(returning: ["오후 반차"]); adapter.heldHalfDay = nil
+    for _ in 0..<30 { await Task.yield() }
+    require(model.detectedModeToday == nil, "A reply from before disable/re-enable must not restore stale half-day mode")
+    manager.setEnabled("leave-detection", false)
+    require(model.setDayType(.morningHalf), "Manual half-day must still work with automatic recognition disabled")
+    require(model.effectiveDayType == .morningHalf, "Optional gate must preserve manual day selection")
+    var intentState = AttendanceState(); intentState.didOfferLoginItem = true
+    let intentStore = StateStore(url: root.appendingPathComponent("leave-intent.json")); try intentStore.save(intentState)
+    let intent = AppModel(store: intentStore, featureRouter: manager.router, allowsLoginItemChanges: false)
+    intent.observeFeatures(manager)
+    manager.setEnabled("leave-detection", true)
+    manager.select(manager.router.defaultID, for: .halfDay)
+    intent.setCalendarHalfDayDetection(true)
+    try await waitForArchitecture("Leave enable intent was lost without a connected source") { intent.state.detectHalfDaysFromCalendar }
+    require(intent.calendarHalfDayMessage != nil, "Missing source must explain how to connect")
+    adapter.titles = ["오후 반차"]
+    manager.select("mac-calendar", for: .halfDay)
+    try await waitForArchitecture("A later provider connection did not resume enabled detection") { intent.detectedModeToday == .afternoonHalf }
+    intent.setCalendarHalfDayDetection(false)
+    adapter.accessFailure = NSError(domain: "CalendarPermissionDeniedFixture", code: 1,
+        userInfo: [NSLocalizedDescriptionKey: "fixture permission denied"])
+    intent.setCalendarHalfDayDetection(true)
+    try await waitForArchitecture("Permission failure was not shown") { intent.calendarHalfDayMessage == "fixture permission denied" }
+    require(!intent.state.detectHalfDaysFromCalendar, "Permission/unknown failures must preserve the disabled preference")
+    adapter.accessFailure = nil
+    intent.setCalendarHalfDayDetection(true)
+    try await waitForArchitecture("Explicit permission retry did not enable detection") {
+        intent.state.detectHalfDaysFromCalendar && intent.detectedModeToday == .afternoonHalf
+    }
+    intent.setCalendarHalfDayDetection(false)
+    adapter.pausesAccess = true
+    intent.setCalendarHalfDayDetection(true)
+    try await waitForArchitecture("Permission fixture never started") { adapter.heldAccess != nil }
+    manager.setEnabled("leave-detection", false); manager.setEnabled("leave-detection", true)
+    adapter.pausesAccess = false
+    adapter.heldAccess?.resume(); adapter.heldAccess = nil
+    for _ in 0..<30 { await Task.yield() }
+    require(!intent.state.detectHalfDaysFromCalendar, "A stale permission reply must not restore disabled recognition intent")
+    print("PASS leave recognition lifecycle: stale title/permission replies, manual selection, enabled intent before connection and permission retry")
+}
+
 @main
 struct PluginArchitectureChecks {
     @MainActor
@@ -169,6 +352,28 @@ struct PluginArchitectureChecks {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("HappyLulu-architecture-" + UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
+        try await checkOptionalCatalog(root: root)
+        try await checkUnreadableCatalogPreservesAttendance(root: root)
+        try await checkLeaveGateInvalidation(root: root)
+        let catalogURL = root.appendingPathComponent("catalog.json")
+        let catalogStore = PluginCatalogStore(url: catalogURL)
+        let emptyCatalog = try catalogStore.load()
+        require(emptyCatalog == nil, "Fresh catalog must contain no optional modules")
+        var catalogState = PluginCatalogState()
+        catalogState.installed["mac-calendar"] = true
+        try catalogStore.save(catalogState)
+        let restartedCatalog = try catalogStore.load()
+        require(restartedCatalog?.installed["mac-calendar"] == true, "Installation must survive restart")
+        let corruptCatalogBytes = Data("broken catalog".utf8)
+        try corruptCatalogBytes.write(to: catalogURL)
+        let protectedManager = PluginManagerModel(defaultAdapter: ProbeAdapter("builtin"),
+            routingStore: FeatureRoutingStore(url: nil), catalogStore: catalogStore)
+        protectedManager.install("mac-calendar")
+        require(!protectedManager.canChangeCatalog && protectedManager.message != nil,
+            "Corrupt catalog must be read only")
+        let preservedCatalogBytes = try Data(contentsOf: catalogURL)
+        require(preservedCatalogBytes == corruptCatalogBytes, "Corrupt catalog must remain byte identical")
+        print("PASS plugin catalog persistence and corruption preservation")
         let manualDayStore = StateStore(url: root.appendingPathComponent("manual-day.json"))
         let manualDayRouter = PluginManagerModel(defaultAdapter: ProbeAdapter("builtin"), routingStore: FeatureRoutingStore(url: nil))
         let manualDayModel = AppModel(store: manualDayStore, featureRouter: manualDayRouter.router)
@@ -255,6 +460,22 @@ struct PluginArchitectureChecks {
                 && regressionModel.arrival?.earlyLeaveOverrideMinutes == 0 && regressionModel.todayDayType == .regular,
                 "Combined regular selection and clock edit must clear the Lulu reduction")
         print("PASS attendance regressions: inline clock preserves calendar updates; annual leave permits arrival deletion")
+        // A real unchanged default must persist, not be mistaken for an unchanged existing arrival.
+        NSTimeZone.default = TimeZone(secondsFromGMT: (9 - utcHour) * 3600)!
+        let defaultClockStore = StateStore(url: root.appendingPathComponent("default-clock.json"))
+        let defaultClockModel = AppModel(store: defaultClockStore, featureRouter: manualDayRouter.router,
+                                         allowsLoginItemChanges: false)
+        let defaultDraft = ArrivalClockEdit(existingTime: nil, now: defaultClockModel.now,
+                                            timeZone: defaultClockModel.calendar.timeZone)
+        require(defaultDraft.needsSave && defaultClockModel.saveManualClockText(defaultDraft.text,
+                    forDay: defaultClockModel.dayKey(defaultClockModel.now)),
+                "An untouched current-time draft must save on dismissal")
+        let persistedDefaultClock = try defaultClockStore.load()
+        require(defaultClockModel.arrival != nil && defaultClockModel.departure != nil
+                && persistedDefaultClock == defaultClockModel.state,
+                "Default clock must persist a real arrival and update departure")
+        print("PASS default arrival: untouched current-time draft persists and calculates departure")
+
         let store = FeatureRoutingStore(url: root.appendingPathComponent("routes.json"))
         let absentStore = FeatureRoutingStore(url: root.appendingPathComponent("removed-plugin.json"))
         try absentStore.save([.calendar: "daouoffice", .leave: "daouoffice", .halfDay: "daouoffice"])
@@ -406,12 +627,16 @@ struct PluginArchitectureChecks {
         try manager.register(PluginRegistration(controller: first, adapter: ProbeAdapter(first.descriptor.id), symbol: "calendar", summary: "일정과 반차를 제공하는 검증 데이터"))
         try manager.register(PluginRegistration(controller: second, adapter: ProbeAdapter(second.descriptor.id), symbol: "leaf", summary: "독립적으로 등록된 두 번째 검증 플러그인"))
         let presentations = PluginSettingsPresentationRegistry()
+        let sync = CalendarSyncModel(calendarAccess: ProbeCalendarAccess(), runtimeAllowed: false)
+        manager.configureCatalog(sync: sync, presentations: presentations, modules: [], allowsExternalIntegrations: false)
+        manager.install("mac-calendar"); manager.install("leave-detection")
         let root = ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 Text(L("플러그인", "Plugins")).font(.title.bold())
                 Text(L("플러그인과 앱 기능의 연결을 관리합니다.", "Manage plugins and their connections to app features."))
                     .foregroundStyle(.secondary)
-                PluginSettingsView(model: manager, presentations: presentations, onOpenCalendarSettings: {})
+                PluginSettingsView(model: manager, presentations: presentations, onOpenPlugin: { _ in },
+                    onInstall: manager.install, onSetEnabled: manager.setEnabled, needsSetup: { _ in false })
             }.padding(28)
         }.frame(width: 630, height: 860)
             .background(Color(nsColor: .windowBackgroundColor))

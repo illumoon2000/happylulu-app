@@ -287,7 +287,7 @@ public actor DaouOfficeAPIClient {
 
 @MainActor
 public final class DaouOfficeAppPlugin: AppPlugin {
-    public let descriptor = PluginDescriptor(id: "daouoffice", name: "Daouoffice")
+    public let descriptor = PluginDescriptor(id: "daouoffice", name: "Daouoffice", author: PluginAuthors.daouOffice)
     private var client: DaouOfficeAPIClient?
     public private(set) var diagnostic: DaouOfficeAPIDiagnostic?
     public private(set) var lastLoginDiagnostic: DaouOfficeAPIDiagnostic?
