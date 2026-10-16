@@ -76,6 +76,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             }
         }
         let firstLaunch = !model.state.didOfferLoginItem
+        let hasLegacyAttendance = FileManager.default.fileExists(atPath: runtimeProfile.stateURL.path)
         Task { @MainActor [weak self] in
             guard let self else { return }
             if runtimeProfile.allowsExternalIntegrations && self.plugins.needsLegacyMigration {
@@ -83,7 +84,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     let calendarConfigured = try await self.calendarSync.legacyConfigured()
                     self.plugins.migrateLegacy(calendarConfigured: calendarConfigured,
                         daouConfigured: try BundledPlugins.legacyDaouConfigured(),
-                        detectsHalfDays: self.model.state.detectHalfDaysFromCalendar)
+                        detectsHalfDays: self.model.state.detectHalfDaysFromCalendar,
+                        hasLegacyAttendance: hasLegacyAttendance)
                 } catch { self.plugins.reportMigrationFailure() }
             }
             self.model.observeFeatures(self.plugins)

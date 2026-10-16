@@ -253,6 +253,155 @@ private enum RetainedDaouModule: PluginModule {
 }
 
 @MainActor
+private func checkLegacyBuiltinMigration(root: URL) throws {
+    let sync = CalendarSyncModel(calendarAccess: ProbeCalendarAccess(), runtimeAllowed: false)
+    func makeManager(_ routes: FeatureRoutingStore, _ catalog: PluginCatalogStore) -> PluginManagerModel {
+        let manager = PluginManagerModel(defaultAdapter: DefaultFeatureAdapter(), routingStore: routes, catalogStore: catalog)
+        manager.configureCatalog(sync: sync, presentations: PluginSettingsPresentationRegistry(), modules: [])
+        return manager
+    }
+    let routes = FeatureRoutingStore(url: root.appendingPathComponent("legacy-builtin-routes.json"))
+    let catalog = PluginCatalogStore(url: root.appendingPathComponent("legacy-builtin-catalog.json"))
+    try routes.save([.calendar: "builtin", .halfDay: "builtin", .leave: "builtin"])
+    let manager = makeManager(routes, catalog)
+    manager.migrateLegacy(calendarConfigured: true, daouConfigured: false, detectsHalfDays: false)
+    let migrated = try routes.load()
+    require(migrated == [.calendar: "mac-calendar", .halfDay: "mac-calendar", .leave: "builtin"],
+        "Legacy builtin calendar/half-day routes must become Mac Calendar while leave stays builtin")
+    require(manager.router.selectedID(for: .calendar) == "mac-calendar" && manager.router.selectedID(for: .halfDay) == "mac-calendar",
+        "Legacy routes were persisted but not activated")
+    let restarted = makeManager(routes, catalog)
+    require(restarted.router.selectedID(for: .calendar) == "mac-calendar" && restarted.router.selectedID(for: .halfDay) == "mac-calendar",
+        "Migrated legacy routes did not survive restart")
+    restarted.select("builtin", for: .calendar)
+    restarted.select("builtin", for: .halfDay)
+    let explicitBytes = try Data(contentsOf: routes.url!)
+    restarted.migrateLegacy(calendarConfigured: true, daouConfigured: true, detectsHalfDays: true)
+    let explicitRestart = makeManager(routes, catalog)
+    let retainedBytes = try Data(contentsOf: routes.url!)
+    require(retainedBytes == explicitBytes && explicitRestart.router.selectedID(for: .calendar) == "builtin"
+        && explicitRestart.router.selectedID(for: .halfDay) == "builtin", "Existing catalog must preserve new explicit builtin routes")
+
+    let emptyCatalog = PluginCatalogStore(url: root.appendingPathComponent("empty-existing-catalog.json"))
+    let disconnectedRoutes = FeatureRoutingStore(url: root.appendingPathComponent("empty-existing-routes.json"))
+    try emptyCatalog.save(PluginCatalogState())
+    try disconnectedRoutes.save([.calendar: "builtin", .halfDay: "builtin"])
+    let disconnected = makeManager(disconnectedRoutes, emptyCatalog)
+    disconnected.migrateLegacy(calendarConfigured: true, daouConfigured: false, detectsHalfDays: true)
+    let disconnectedDesired = try disconnectedRoutes.load()
+    require(disconnected.installed.isEmpty && disconnectedDesired == [.calendar: "builtin", .halfDay: "builtin"],
+        "An existing empty catalog still marks a post-upgrade explicit disconnect")
+
+    let profileRoutes = FeatureRoutingStore(url: root.appendingPathComponent("attendance-only-routes.json"))
+    let profileCatalog = PluginCatalogStore(url: root.appendingPathComponent("attendance-only-catalog.json"))
+    let profile = makeManager(profileRoutes, profileCatalog)
+    profile.migrateLegacy(calendarConfigured: false, daouConfigured: false, detectsHalfDays: false, hasLegacyAttendance: true)
+    let profileDesired = try profileRoutes.load()
+    require(profile.isEnabled("mac-calendar") && profileDesired == [.calendar: "mac-calendar", .halfDay: "mac-calendar"],
+        "An existing attendance profile must retain implicit legacy Mac Calendar defaults")
+
+    for (name, input, expected) in [
+        ("mixed", [AppFeature.calendar: "daouoffice", .halfDay: "builtin", .leave: "daouoffice"],
+            [AppFeature.calendar: "daouoffice", .halfDay: "mac-calendar", .leave: "daouoffice"]),
+        ("third-party", [AppFeature.calendar: "daouoffice", .halfDay: "daouoffice", .leave: "builtin"],
+            [AppFeature.calendar: "daouoffice", .halfDay: "daouoffice", .leave: "builtin"]),
+        ("implicit-route-default", [AppFeature.leave: "builtin"],
+            [AppFeature.calendar: "mac-calendar", .halfDay: "mac-calendar", .leave: "builtin"]),
+        ("empty-route-default", [:], [AppFeature.calendar: "mac-calendar", .halfDay: "mac-calendar"]),
+        ("interrupted-migration", [AppFeature.calendar: "mac-calendar", .halfDay: "mac-calendar"],
+            [AppFeature.calendar: "mac-calendar", .halfDay: "mac-calendar"])
+    ] {
+        let routing = FeatureRoutingStore(url: root.appendingPathComponent(name + "-routes.json"))
+        let catalog = PluginCatalogStore(url: root.appendingPathComponent(name + "-catalog.json"))
+        try routing.save(input)
+        let value = makeManager(routing, catalog)
+        value.migrateLegacy(calendarConfigured: false, daouConfigured: false, detectsHalfDays: false)
+        let actual = try routing.load()
+        require(value.isEnabled("mac-calendar") && actual == expected,
+            "Legacy routing migration lost explicit third-party choices or implicit Mac defaults: " + name)
+    }
+    let freshRoutes = FeatureRoutingStore(url: root.appendingPathComponent("fresh-migration-routes.json"))
+    let freshCatalog = PluginCatalogStore(url: root.appendingPathComponent("fresh-migration-catalog.json"))
+    let fresh = makeManager(freshRoutes, freshCatalog)
+    fresh.migrateLegacy(calendarConfigured: false, daouConfigured: false, detectsHalfDays: false)
+    require(fresh.installed.isEmpty && fresh.router.selectedID(for: .calendar) == "builtin"
+        && !FileManager.default.fileExists(atPath: freshRoutes.url!.path), "Fresh install must remain core-only")
+
+    let corruptRoutes = FeatureRoutingStore(url: root.appendingPathComponent("corrupt-legacy-routes.json"))
+    let corruptCatalog = PluginCatalogStore(url: root.appendingPathComponent("corrupt-legacy-catalog.json"))
+    let corruptBytes = Data("preserve corrupt routing".utf8)
+    try corruptBytes.write(to: corruptRoutes.url!)
+    let corrupt = makeManager(corruptRoutes, corruptCatalog)
+    corrupt.migrateLegacy(calendarConfigured: true, daouConfigured: true, detectsHalfDays: true)
+    let corruptAfter = try Data(contentsOf: corruptRoutes.url!)
+    require(corruptAfter == corruptBytes && !FileManager.default.fileExists(atPath: corruptCatalog.url!.path)
+        && !corrupt.canChangeCatalog && !corrupt.canChangeRoutes, "Corrupt routing must block migration and preserve bytes")
+
+    let readonlyDirectory = root.appendingPathComponent("readonly-route-migration")
+    let failedRoutes = FeatureRoutingStore(url: readonlyDirectory.appendingPathComponent("routes.json"))
+    let failedCatalog = PluginCatalogStore(url: root.appendingPathComponent("failed-route-write-catalog.json"))
+    try failedRoutes.save([.calendar: "builtin"])
+    let originalFailedRoutes = try Data(contentsOf: failedRoutes.url!)
+    let routeFailure = makeManager(failedRoutes, failedCatalog)
+    try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: readonlyDirectory.path)
+    defer { try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: readonlyDirectory.path) }
+    routeFailure.migrateLegacy(calendarConfigured: true, daouConfigured: false, detectsHalfDays: false)
+    let routesAfterWriteFailure = try Data(contentsOf: failedRoutes.url!)
+    require(!FileManager.default.fileExists(atPath: failedCatalog.url!.path) && !routeFailure.canChangeCatalog,
+        "Route write failure must not write migration completion")
+    require(originalFailedRoutes == routesAfterWriteFailure, "Failed route save changed source routing bytes")
+    try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: readonlyDirectory.path)
+    let repairedRoute = makeManager(failedRoutes, failedCatalog)
+    require(repairedRoute.needsLegacyMigration, "Repairing route permissions must allow migration on next launch")
+    repairedRoute.migrateLegacy(calendarConfigured: true, daouConfigured: false, detectsHalfDays: false)
+    let repairedRouteDesired = try failedRoutes.load()
+    let repairedRouteCatalog = try failedCatalog.load()
+    require(!repairedRoute.needsLegacyMigration && repairedRoute.canChangeRoutes && repairedRouteCatalog?.installed["mac-calendar"] == true
+        && repairedRouteDesired == [.calendar: "mac-calendar", .halfDay: "mac-calendar"],
+        "Migration did not complete after repairing route permissions")
+
+    let catalogBlocker = root.appendingPathComponent("legacy-catalog-write-blocker")
+    try Data("preserve catalog blocker".utf8).write(to: catalogBlocker)
+    for existingRoutes in [false, true] {
+        let routing = FeatureRoutingStore(url: root.appendingPathComponent("rollback-routes-\(existingRoutes).json"))
+        let catalog = PluginCatalogStore(url: catalogBlocker.appendingPathComponent("catalog.json"))
+        let original = Data("{ \"calendar\" : \"builtin\", \"leave\" : \"daouoffice\" }\n".utf8)
+        if existingRoutes { try original.write(to: routing.url!) }
+        let failed = makeManager(routing, catalog)
+        failed.migrateLegacy(calendarConfigured: true, daouConfigured: false, detectsHalfDays: false)
+        require(!failed.canChangeCatalog && !failed.canChangeRoutes && failed.message != nil,
+            "Failed catalog migration must leave all settings read-only")
+        if existingRoutes {
+            let restored = try Data(contentsOf: routing.url!)
+            require(restored == original, "Catalog write failure must restore exact original routing bytes")
+        } else {
+            require(!FileManager.default.fileExists(atPath: routing.url!.path), "Failed migration left a new routing file behind")
+        }
+        failed.select("builtin", for: .leave)
+        if existingRoutes {
+            let preserved = try Data(contentsOf: routing.url!)
+            require(preserved == original, "Explicit selection changed routes after migration failure")
+        }
+        let retry = makeManager(routing, catalog)
+        require(retry.needsLegacyMigration, "Failed migration must retry on next launch")
+    }
+    try FileManager.default.removeItem(at: catalogBlocker)
+    try FileManager.default.createDirectory(at: catalogBlocker, withIntermediateDirectories: false)
+    let repairedRouting = FeatureRoutingStore(url: root.appendingPathComponent("rollback-routes-true.json"))
+    let repairedCatalog = PluginCatalogStore(url: catalogBlocker.appendingPathComponent("catalog.json"))
+    let repaired = makeManager(repairedRouting, repairedCatalog)
+    require(repaired.needsLegacyMigration, "Repairing catalog storage must leave migration pending until it is saved")
+    repaired.migrateLegacy(calendarConfigured: true, daouConfigured: false, detectsHalfDays: false)
+    let repairedDesired = try repairedRouting.load()
+    let repairedState = try repairedCatalog.load()
+    require(!repaired.needsLegacyMigration && repaired.canChangeCatalog && repaired.canChangeRoutes
+        && repairedState?.installed["mac-calendar"] == true
+        && repairedDesired == [.calendar: "mac-calendar", .halfDay: "mac-calendar", .leave: "daouoffice"],
+        "Catalog repair/retry did not commit migrated routes and catalog together")
+    print("PASS legacy builtin migration: explicit/missing routes, mixed Daou, restart, one-time mapping, fresh core-only, corrupt routing, transactional save failures and successful repair/retry")
+}
+
+@MainActor
 private func checkDisabledRoutesAndMigration(root: URL) async throws {
     let routing = FeatureRoutingStore(url: root.appendingPathComponent("retained-routes.json"))
     let catalog = PluginCatalogStore(url: root.appendingPathComponent("retained-catalog.json"))
@@ -442,6 +591,7 @@ struct PluginArchitectureChecks {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("HappyLulu-architecture-" + UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
+        try checkLegacyBuiltinMigration(root: root)
         try await checkOptionalCatalog(root: root)
         try await checkDisabledRoutesAndMigration(root: root)
         try await checkUnreadableCatalogPreservesAttendance(root: root)

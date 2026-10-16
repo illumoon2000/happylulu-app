@@ -100,7 +100,11 @@ final class PluginManagerModel: ObservableObject {
             message = "플러그인 상태를 읽지 못했습니다. 원본을 보존하고 읽기 전용으로 실행합니다."
         }
         do { savedRoutes = try routingStore.load() }
-        catch { writable = false; message = "기능 연결 설정을 읽지 못했습니다. 원본을 보존하고 기본 연결을 사용합니다." }
+        catch {
+            writable = false
+            if !hasCatalogState { catalogWritable = false }
+            message = "기능 연결 설정을 읽지 못했습니다. 원본을 보존하고 기본 연결을 사용합니다."
+        }
     }
     func configureCatalog(sync: CalendarSyncModel, presentations: PluginSettingsPresentationRegistry,
                           modules: [any PluginModule.Type] = BundledPlugins.modules,
@@ -140,14 +144,48 @@ final class PluginManagerModel: ObservableObject {
     }
 
     /// The caller supplies only booleans from existing configuration, never credentials.
-    func migrateLegacy(calendarConfigured: Bool, daouConfigured: Bool, detectsHalfDays: Bool) {
+    func migrateLegacy(calendarConfigured: Bool, daouConfigured: Bool, detectsHalfDays: Bool, hasLegacyAttendance: Bool = false) {
         guard !hasCatalogState, catalogWritable else { return }
+        guard writable else { reportMigrationFailure(); return }
         var next = catalogState
-        if calendarConfigured || detectsHalfDays { next.installed["mac-calendar"] = true }
+        var routes = savedRoutes
+        let hadRoutingFile = routingStore.url.map { FileManager.default.fileExists(atPath: $0.path) } ?? false
+        if calendarConfigured || detectsHalfDays || hasLegacyAttendance || hadRoutingFile {
+            next.installed["mac-calendar"] = true
+            // Before the catalog existed, builtin and absent routes meant Mac Calendar.
+            for feature in [AppFeature.calendar, .halfDay] where routes[feature] == nil || routes[feature] == router.defaultID {
+                routes[feature] = "mac-calendar"
+            }
+        }
         if daouConfigured { next.installed["daouoffice"] = true }
         if detectsHalfDays { next.installed["leave-detection"] = true }
-        do { try catalogStore.save(next); catalogState = next; hasCatalogState = true }
-        catch { catalogWritable = false; message = "플러그인 이관을 저장하지 못했습니다. 기존 파일을 보존했습니다."; return }
+        var originalRoutes: Data?
+        var attemptedRouteWrite = false
+        do {
+            if hadRoutingFile, let url = routingStore.url { originalRoutes = try Data(contentsOf: url) }
+            if routes != savedRoutes {
+                attemptedRouteWrite = true
+                try routingStore.save(routes)
+            }
+            try catalogStore.save(next)
+            savedRoutes = routes; catalogState = next; hasCatalogState = true
+        } catch {
+            catalogWritable = false
+            message = "플러그인 이관을 저장하지 못했습니다. 기존 파일을 보존했습니다."
+            if attemptedRouteWrite, let url = routingStore.url {
+                do {
+                    if let originalRoutes {
+                        if (try? Data(contentsOf: url)) != originalRoutes { try originalRoutes.write(to: url, options: .atomic) }
+                    }
+                    else if !hadRoutingFile, FileManager.default.fileExists(atPath: url.path) {
+                        try FileManager.default.removeItem(at: url)
+                    }
+                } catch {
+                    message = "플러그인 이관과 기능 연결 복구에 실패했습니다. 파일 접근 권한을 확인한 뒤 다시 실행해 주세요."
+                }
+            }
+            return
+        }
         for entry in installed where !registrations.contains(where: { $0.id == entry.id }) { activateInstalled(entry.id) }
         revision += 1
     }
@@ -259,7 +297,7 @@ final class PluginManagerModel: ObservableObject {
         revision += 1
     }
     func select(_ id: String, for feature: AppFeature) {
-        guard writable else { return }
+        guard canChangeRoutes else { return }
         let old = router.selectedID(for: feature)
         do {
             try router.select(id, for: feature)
@@ -285,7 +323,7 @@ final class PluginManagerModel: ObservableObject {
         revision += 1
     }
     private func persistRoutes() {
-        guard writable else { return }
+        guard canChangeRoutes else { return }
         do {
             // Runtime fallback is transient; only an explicit selection forgets a route.
             var desired = savedRoutes
