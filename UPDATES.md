@@ -19,20 +19,24 @@
 
 ## 새 버전 배포
 
-1.5.14 build30은 앱 내부 플러그인·기능 어댑터와 다우오피스 일반 계정·CAPTCHA 로그인, 올해 휴가·이번 달 일정 조회를 추가합니다. 원격 등록·수정·삭제는 수행하지 않습니다. 이 버전의 실제 설치·권한 유지 시험은 수행하지 않았으며 사용자가 직접 업데이트합니다. 1.5.11 build27의 아래 설치 검증 이력과 구분합니다.
+**Mac 1.5.15 build31은 배포 준비 중이며 미게시입니다.** 컴팩트 메뉴바 패널, HH:mm 출근 시각 자동 저장, 오늘의 다섯 근무 유형과 룰루데이·연차/공가 선택을 포함합니다. 시각만 수정할 때 자동 캘린더 판단을 유지하고, 연차 상태에서도 ‘오늘 쉬는 날’로 기록을 지울 수 있으며, 일반근무의 명시적 선택은 단축을 0분으로 지정합니다. Windows는 1.5.13을 유지하고 이 새 동작을 포함하지 않습니다.
+
+이 후보의 서명 패키지·Release·feed는 아직 공개하지 않았고 실제 사용자 앱 교체·재실행과 기록·연결·캘린더 권한 유지도 미검증입니다. 실제 설치 시험과 명시적으로 승인된 설치 없는 공개 중 어느 경로로 진행할지 결정한 뒤 DEPLOYMENT.md를 따릅니다. 후보 소스 준비나 CI 성공으로 설치 증거를 대신하지 않습니다.
+
+공개 Mac 1.5.14 build30은 앱 내부 플러그인·기능 어댑터와 다우오피스 일반 계정·CAPTCHA 로그인, 올해 휴가·이번 달 일정 조회를 추가합니다. 원격 등록·수정·삭제는 수행하지 않습니다. 이 버전의 실제 설치·권한 유지 시험은 수행하지 않았으며 사용자가 직접 업데이트합니다. 1.5.11 build27의 아래 설치 검증 이력과 구분합니다.
 
 배포 절차와 승격 조건의 정본은 [DEPLOYMENT.md](DEPLOYMENT.md)입니다. **1.5.11 build27을 공개했고** 로컬 설치본 교체·재실행과 기록·연결·캘린더 전체 권한 보존, 공개 파일·서명 피드 바이트 일치를 확인했습니다. 이 Mac의 직접 교체 검증이며 모든 외부 Mac 또는 이전 Site 피드 앱의 자동 이전 성공을 뜻하지 않습니다.
 
 - 앱 feed: `https://github.com/young221718/happylulu-app/releases/download/macos-update-feed/appcast.xml`
-- ZIP·DMG·노트·체크섬·서명된 appcast의 보관 태그: `macos-v1.5.14-build30`
+- 현재 공개 보관 태그: `macos-v1.5.14-build30`; 새 후보의 예정 태그: `macos-v1.5.15-build31`
 - `macos-update-feed`는 mutable prerelease이며 Latest로 표시하지 않습니다. 서명한 XML을 수정하지 않고 그대로 올립니다.
 - 소스의 LICENSE와 THIRD_PARTY_NOTICES.md를 앱 Resources, ZIP 내부 앱, DMG와 릴리스 자산에 동봉합니다. 과거 바이너리는 다시 포장하거나 새 라이선스가 소급 동봉된 것으로 표시하지 않습니다.
 - 공개 CI는 검증과 ad-hoc Universal 패키지 artifact만 만듭니다. 로컬 서명키나 키체인 정보를 GitHub Secrets에 넣지 않습니다.
 
 ```sh
 bash scripts/prepare-release.sh
-python3 scripts/release_delivery.py check dist/releases/1.5.14-build30
-python3 scripts/release_delivery.py draft dist/releases/1.5.14-build30 --dry-run
+python3 scripts/release_delivery.py check dist/releases/1.5.15-build31
+python3 scripts/release_delivery.py draft dist/releases/1.5.15-build31 --dry-run
 ```
 
 `prepare-release.sh`는 사용자가 승인한 로컬 키체인 서명만 사용합니다. 실제 GitHub 쓰기는 별도 `draft`와 `promote` 명령입니다. `check`와 `--dry-run`은 GitHub에 접속하지 않습니다. 실제 HappyLulu 교체·재실행, 캘린더 권한·출근 기록·캘린더 연결 보존 증거가 이 ZIP 해시와 일치하지 않으면 승격하지 못합니다.

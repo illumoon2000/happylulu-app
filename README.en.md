@@ -30,6 +30,8 @@
 
 **Mac 1.5.14 · build30** adds built-in plugins, feature adapters and Daouoffice account/CAPTCHA login. See the [plugin guide](docs/PLUGINS.md) for vacation and calendar access limits. Windows remains at 1.5.13. Actual Mac installation and permission preservation need separate validation. Windows has no calendar sync or built-in updater.
 
+**Release preparation · unpublished: Mac 1.5.15 build31.** The candidate adds a compact panel, automatic saving of HH:mm arrival edits, today’s regular/half-day/Lulu/leave choices, and three attendance regression fixes. Windows stays at 1.5.13 without these new behaviors. Actual installation and permission preservation remain untested, and the publication path is undecided. See the [candidate release notes](RELEASE-NOTES.md). Downloads above remain on the public releases.
+
 <a id="three-small-steps"></a>
 
 ## Quick start
