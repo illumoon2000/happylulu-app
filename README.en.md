@@ -25,10 +25,10 @@
 
 | Platform | Direct download | Requirements · details |
 | --- | --- | --- |
-| **Mac 1.5.15 · build31** | [Download DMG](https://github.com/young221718/happylulu-app/releases/download/macos-v1.5.15-build31/HappyLulu-1.5.15-universal.dmg) · [ZIP](https://github.com/young221718/happylulu-app/releases/download/macos-v1.5.15-build31/HappyLulu-1.5.15-universal.zip) | macOS 13+ · Universal · [Release and checksums](https://github.com/young221718/happylulu-app/releases/tag/macos-v1.5.15-build31) |
+| **Mac 1.5.16 · build32** | [Download DMG](https://github.com/young221718/happylulu-app/releases/download/macos-v1.5.16-build32/HappyLulu-1.5.16-universal.dmg) · [ZIP](https://github.com/young221718/happylulu-app/releases/download/macos-v1.5.16-build32/HappyLulu-1.5.16-universal.zip) | macOS 13+ · Universal · [Release and checksums](https://github.com/young221718/happylulu-app/releases/tag/macos-v1.5.16-build32) |
 | **Windows 1.5.13** | [Download ZIP](https://github.com/young221718/happylulu-app/releases/download/windows-v1.5.13/HappyLulu-1.5.13-windows-x64-runtime-required.zip) | Windows 10/11 x64 · .NET 10 Desktop Runtime x64 required · [Installation guide](windows/README.en.md) |
 
-**Mac 1.5.15 · build31** adds a compact today panel, four-digit arrival editing with automatic saving, five workday choices, optional plugins, themes and app icons. See the [plugin guide](docs/PLUGINS.md) for calendar, Daouoffice and leave-detection scope and developers. Windows remains at 1.5.13 without calendar sync or a built-in updater. The [release notes](RELEASE-NOTES.md) and [deployment procedure](DEPLOYMENT.md) distinguish installation and permission-preservation checks.
+**Mac 1.5.16 · build32** shows the scheduled departure and countdown together in the menu bar. Hours, minutes, seconds, hours/minutes and milliseconds apply immediately. It includes the existing today panel, arrival editing, workday choices, plugins and appearance settings. See the [plugin guide](docs/PLUGINS.md) for calendar, Daouoffice and leave-detection scope and developers. Windows remains at 1.5.13 without calendar sync or a built-in updater. The [release notes](RELEASE-NOTES.md) and [deployment procedure](DEPLOYMENT.md) distinguish installation and permission-preservation checks.
 
 <a id="three-small-steps"></a>
 

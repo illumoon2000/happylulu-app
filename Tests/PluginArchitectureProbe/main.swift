@@ -105,6 +105,80 @@ private func waitForArchitecture(_ message: String, _ condition: () -> Bool) asy
 }
 
 @MainActor
+private func checkMenuCountdownDisplay(root: URL) throws {
+    let defaults = UserDefaults.standard
+    let keys = ["HappyLuluCountdownDisplay", AppLanguage.key]
+    let saved = keys.map { defaults.object(forKey: $0) }
+    defer {
+        for (key, value) in zip(keys, saved) {
+            if let value { defaults.set(value, forKey: key) }
+            else { defaults.removeObject(forKey: key) }
+        }
+    }
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(identifier: "Asia/Seoul")!
+    let fixtureCalendar = calendar
+    var fixtureNow = calendar.date(from: DateComponents(year: 2026, month: 10, day: 16,
+                                                       hour: 16, minute: 29, second: 30))!
+    let arrivalTime = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: fixtureNow)!
+    let day = Attendance.dayKey(fixtureNow, calendar: calendar)
+    var state = AttendanceState(); state.didOfferLoginItem = true; state.detectHalfDaysFromCalendar = false
+    state.arrivals[day] = Arrival(day: day, time: arrivalTime, source: .manual,
+        timeZoneID: calendar.timeZone.identifier, mode: .normal, modeSource: .manual, earlyLeaveOverrideMinutes: 0)
+    let store = StateStore(url: root.appendingPathComponent("menu-countdown.json"))
+    try store.save(state)
+    let original = try Data(contentsOf: store.url)
+    let manager = PluginManagerModel(defaultAdapter: ProbeAdapter("builtin"), routingStore: FeatureRoutingStore(url: nil))
+    func makeModel() -> AppModel {
+        AppModel(store: store, featureRouter: manager.router, allowsLoginItemChanges: false,
+                 nowProvider: { fixtureNow }, calendarProvider: { fixtureCalendar })
+    }
+    let model = makeModel()
+    let samples: [(CountdownDisplay, String, String)] = [
+        (.milliseconds, "5430000밀리초", "5430000 ms"),
+        (.seconds, "5430초", "5430 sec"),
+        (.minutes, "91분", "91 min"),
+        (.hours, "1.6시간", "1.6 hr"),
+        (.hoursMinutes, "1시간 31분", "1 hr 31 min")
+    ]
+    for language in [LanguageChoice.korean, .english] {
+        defaults.set(language.rawValue, forKey: AppLanguage.key)
+        for (choice, korean, english) in samples {
+            model.setCountdownDisplay(choice)
+            let remaining = language == .korean ? korean : english
+            let expected = language == .korean ? "퇴근 18:00 · \(remaining) 남음" : "Leave 18:00 · \(remaining) left"
+            require(model.countdownText == remaining, "Work settings must use the selected countdown unit")
+            require(model.menuTitle == expected,
+                    "Menu title must reflect \(choice.rawValue) immediately [\(language.rawValue)]: \(model.menuTitle)")
+            let restarted = makeModel()
+            require(restarted.countdownDisplay == choice && restarted.menuTitle == expected,
+                    "Menu countdown choice must survive model reload")
+        }
+    }
+    defaults.set(LanguageChoice.english.rawValue, forKey: AppLanguage.key)
+    model.setCountdownDisplay(.seconds)
+    fixtureNow = fixtureNow.addingTimeInterval(1)
+    model.refresh()
+    require(model.menuTitle == "Leave 18:00 · 5429 sec left", "Menu countdown must advance with the model clock")
+    fixtureNow = model.departure!
+    model.refresh()
+    require(model.menuTitle == "Leave 18:00", "At departure, preserve the clock without a zero countdown")
+    fixtureNow = fixtureNow.addingTimeInterval(60)
+    model.refresh()
+    require(model.menuTitle == "Leave 18:00", "After departure, preserve the clock without a negative countdown")
+    let unchanged = try Data(contentsOf: store.url)
+    require(unchanged == original, "Countdown display changes must not mutate attendance")
+    require(model.setDayType(.annualLeave) && model.menuTitle == "Leave day", "Leave day must not show a countdown")
+    model.skipToday()
+    require(model.menuTitle == "Day off today", "Skipped day must not show a countdown")
+    let emptyModel = AppModel(store: StateStore(url: root.appendingPathComponent("menu-waiting.json")),
+        featureRouter: manager.router, allowsLoginItemChanges: false,
+        nowProvider: { fixtureNow }, calendarProvider: { fixtureCalendar })
+    require(emptyModel.menuTitle == "Waiting for arrival", "Missing arrival must not show a countdown")
+    print("PASS menu countdown: five units, Korean/English, immediate change/reload, clock advance, departure boundary, leave/skip/waiting and attendance preservation")
+}
+
+@MainActor
 private func checkInjectedAttendanceClock(root: URL) throws {
     let defaults = UserDefaults.standard
     let savedCountdown = defaults.object(forKey: "HappyLuluCountdownDisplay")
@@ -680,6 +754,7 @@ struct PluginArchitectureChecks {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("HappyLulu-architecture-" + UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
+        try checkMenuCountdownDisplay(root: root)
         try checkInjectedAttendanceClock(root: root)
         try await checkInjectedAsyncClock(root: root)
         try checkLegacyBuiltinMigration(root: root)
@@ -741,7 +816,7 @@ struct PluginArchitectureChecks {
         try clockStore.save(clockState)
         let clockModel = AppModel(store: clockStore, featureRouter: manualDayRouter.router, allowsLoginItemChanges: false,
                                   nowProvider: { fixtureNow }, calendarProvider: { fixtureCalendar })
-        require(clockModel.menuTitle.hasSuffix("18:00"), "Compact menu must use explicit 24-hour departure")
+        require(clockModel.menuTitle.hasPrefix(L("퇴근 18:00", "Leave 18:00")), "Compact menu must use explicit 24-hour departure")
         clockModel.setLoginEnabled(true)
         require(clockModel.errorMessage != nil && clockModel.state == clockState,
                 "Development app must not register login items")

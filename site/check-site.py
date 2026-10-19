@@ -3,11 +3,18 @@ from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlsplit
 import json
+import plistlib
 import re
 
 ROOT = Path(__file__).resolve().parent
 DIST = ROOT / "dist"
 REPO = "https://github.com/young221718/happylulu-app"
+with (ROOT.parent / "Resources/Info.plist").open("rb") as source:
+    metadata = plistlib.load(source)
+MAC_VERSION = metadata["CFBundleShortVersionString"]
+MAC_BUILD = metadata["CFBundleVersion"]
+MAC_SLUG = f"macos-{MAC_VERSION}"
+MAC_TAG = f"macos-v{MAC_VERSION}-build{MAC_BUILD}"
 
 
 class Page(HTMLParser):
@@ -112,8 +119,9 @@ legacy_routes = ("index.html", "en/index.html", "download/index.html", "features
                  "releases/index.html", "en/releases/index.html")
 features = ("attendance", "arrival-time", "workday-modes", "countdown", "history", "calendar",
             "plugins", "daouoffice", "leave-recognition", "appearance", "overtime", "updates")
-releases = {"macos-1.5.15": "macos-v1.5.15-build31", "macos-1.5.14": "macos-v1.5.14-build30",
+releases = {MAC_SLUG: MAC_TAG, "macos-1.5.15": "macos-v1.5.15-build31", "macos-1.5.14": "macos-v1.5.14-build30",
             "windows-1.5.13": "windows-v1.5.13"}
+assert len(pages) == 44, "Preserve 42 existing routes and add both Mac 1.5.16 details"
 for route in legacy_routes:
     assert (DIST / route).resolve() in pages, route
 for prefix in ("", "en/"):
@@ -130,14 +138,16 @@ for prefix in ("", "en/"):
             assert page.section_links[navigation] == overview_page.section_links[navigation], f"Navigation order changed: {route}"
             assert page.section_current[navigation] == [route], f"Selected section must be marked: {route}"
     listing = pages[(DIST / prefix / "releases/index.html").resolve()]
-    assert set(listing.release_cards) == set(releases), "Release list must explain every version"
+    assert list(listing.release_cards) == list(releases), "Show latest Mac, older Macs, then Windows in order"
     for slug, tag in releases.items():
         card = listing.release_cards[slug]
         version = slug.split("-", 1)[1]
         asset = (f"HappyLulu-{version}-universal.dmg" if slug.startswith("macos-")
                  else f"HappyLulu-{version}-windows-x64-runtime-required.zip")
-        assert card["changes"] >= 2, f"Show key changes without opening the release: {slug}"
+        assert card["changes"] == 3, f"Show key changes without opening the release: {slug}"
         assert REPO + f"/releases/download/{tag}/{asset}" in card["links"], f"Download directly from the release list: {slug}"
+        if slug.startswith("macos-"):
+            assert REPO + f"/releases/download/{tag}/HappyLulu-{version}-universal.zip" in card["links"], slug
 calendar_paths = {"features/calendar/index.html": "how", "en/features/calendar/index.html": "how",
                   "guide/index.html": "plugins", "en/guide/index.html": "plugins",
                   "calendar/index.html": None}
@@ -194,6 +204,9 @@ for prefix, language in (("", "ko"), ("en/", "en")):
                 assert any(link.startswith(f"/{prefix}features/") for link in page.links), route
 links = []
 for document, page in pages.items():
+    for asset in ("/style.css", "/app.js"):
+        references = [link for link in page.links if urlsplit(link).path == asset]
+        assert references == [f"{asset}?v={MAC_TAG}"], f"Shared assets must invalidate the previous release cache: {document} {asset}"
     assert REPO + "/blob/main/LICENSE" in page.links, document
     guide_route = "/en/guide/" if document.is_relative_to((DIST / "en").resolve()) else "/guide/"
     assert guide_route in page.links, f"Every page must expose the on-site usage guide: {document}"
@@ -217,6 +230,8 @@ for document, page in pages.items():
         if url.fragment and target in pages:
             assert url.fragment in pages[target].ids, (document, link)
 for tag, asset in [
+    (MAC_TAG, f"HappyLulu-{MAC_VERSION}-universal.dmg"),
+    (MAC_TAG, f"HappyLulu-{MAC_VERSION}-universal.zip"),
     ("macos-v1.5.15-build31", "HappyLulu-1.5.15-universal.dmg"),
     ("macos-v1.5.15-build31", "HappyLulu-1.5.15-universal.zip"),
     ("windows-v1.5.13", "HappyLulu-1.5.13-windows-x64-runtime-required.zip"),
@@ -224,10 +239,24 @@ for tag, asset in [
     assert REPO + f"/releases/download/{tag}/{asset}" in links, asset
 for entry in ("index.html", "en/index.html", "download/index.html"):
     page = pages[(DIST / entry).resolve()]
-    for asset in ("HappyLulu-1.5.15-universal.dmg", "HappyLulu-1.5.15-universal.zip", "SHA256SUMS.txt"):
-        expected = REPO + "/releases/download/macos-v1.5.15-build31/" + asset
-        assert expected in page.links, f"Primary Mac download must use the published build31: {entry} {asset}"
+    for asset in (f"HappyLulu-{MAC_VERSION}-universal.dmg", f"HappyLulu-{MAC_VERSION}-universal.zip", "SHA256SUMS.txt"):
+        expected = REPO + f"/releases/download/{MAC_TAG}/" + asset
+        assert expected in page.links, f"Primary Mac download must match app metadata: {entry} {asset}"
     assert REPO + "/releases/download/windows-v1.5.13/HappyLulu-1.5.13-windows-x64-runtime-required.zip" in page.links, entry
+# Historical Mac badges may change, but the Windows platform statement must stay intact.
+for prefix, windows_statement in (("", "Windows 최신 공개 버전은 1.5.13입니다."),
+                                   ("en/", "The latest public Windows release remains 1.5.13.")):
+    previous = (DIST / prefix / "releases/macos-1.5.15/index.html").read_text()
+    assert windows_statement in previous, f"Preserve the Windows platform statement in the historical Mac release: {prefix}"
+# Prevent a release bump from leaving the site on the previous binary or menu-bar behavior.
+for prefix, phrases in (("", ("퇴근 18:00 · 91분 남음", "즉시", "밀리초·초·분·시·시/분", "1초", "0.1초", "퇴근 예정 시각만")),
+                        ("en/", ("Leave 18:00 · 91 min left", "immediately", "milliseconds, seconds, minutes, hours or hours/minutes", "every second", "0.1 seconds", "only the expected departure time"))):
+    countdown = (DIST / prefix / "features/countdown/index.html").read_text()
+    for phrase in phrases:
+        assert phrase in countdown, f"Explain current menu-bar units and cadence: {prefix} {phrase}"
+    for route in ("index.html", "guide/index.html", "features/countdown/index.html"):
+        document = (DIST / prefix / route).read_text()
+        assert f"/{prefix}releases/{MAC_SLUG}/" in document, f"Current release link must match app metadata: {prefix}{route}"
 assert not any("/downloads/" in urlsplit(link).path for link in links), "Use GitHub release assets"
 for path in DIST.rglob("*"):
     assert not path.is_symlink(), path

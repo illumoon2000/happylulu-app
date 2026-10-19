@@ -19,7 +19,7 @@
 
 ## 새 버전 배포
 
-**Mac 1.5.15 build31**은 컴팩트 패널, 네 자리 출근 시각 편집·자동 저장, 오늘의 다섯 근무 유형, 선택 플러그인과 테마·아이콘 설정을 포함합니다. Windows는 1.5.13을 유지합니다.
+**Mac 1.5.16 build32**은 메뉴바의 퇴근 예정 시각 옆에 선택한 단위의 남은 시간을 표시합니다. 시·분·초·시/분·밀리초 변경과 카운트다운 갱신을 복원하며 기존 출근 기록과 설정을 유지합니다. Windows는 1.5.13을 유지합니다.
 
 2026-10-19 사용자 승인에 따라 기존 정식 앱·프로필을 백업하고 실제 앱 교체·재실행과 출근 기록·캘린더 연결·권한 유지 증거를 확인한 뒤 서명 패키지·Release·feed를 공개하는 경로를 사용합니다. 검증 결과는 로컬 배포 receipts에 보존하며 소스 준비·CI 성공만으로 설치 완료를 주장하지 않습니다.
 
@@ -28,15 +28,15 @@
 배포 절차와 승격 조건의 정본은 [DEPLOYMENT.md](DEPLOYMENT.md)입니다. **1.5.11 build27을 공개했고** 로컬 설치본 교체·재실행과 기록·연결·캘린더 전체 권한 보존, 공개 파일·서명 피드 바이트 일치를 확인했습니다. 이 Mac의 직접 교체 검증이며 모든 외부 Mac 또는 이전 Site 피드 앱의 자동 이전 성공을 뜻하지 않습니다.
 
 - 앱 feed: `https://github.com/young221718/happylulu-app/releases/download/macos-update-feed/appcast.xml`
-- 이번 배포 보관 태그: `macos-v1.5.15-build31`; 이전 공개 `macos-v1.5.14-build30` 자산도 보존
+- 이번 배포 보관 태그: `macos-v1.5.16-build32`; 이전 공개 `macos-v1.5.15-build31` 자산도 보존
 - `macos-update-feed`는 mutable prerelease이며 Latest로 표시하지 않습니다. 서명한 XML을 수정하지 않고 그대로 올립니다.
 - 소스의 LICENSE와 THIRD_PARTY_NOTICES.md를 앱 Resources, ZIP 내부 앱, DMG와 릴리스 자산에 동봉합니다. 과거 바이너리는 다시 포장하거나 새 라이선스가 소급 동봉된 것으로 표시하지 않습니다.
 - 공개 CI는 검증과 ad-hoc Universal 패키지 artifact만 만듭니다. 로컬 서명키나 키체인 정보를 GitHub Secrets에 넣지 않습니다.
 
 ```sh
 bash scripts/prepare-release.sh
-python3 scripts/release_delivery.py check dist/releases/1.5.15-build31
-python3 scripts/release_delivery.py draft dist/releases/1.5.15-build31 --dry-run
+python3 scripts/release_delivery.py check dist/releases/1.5.16-build32
+python3 scripts/release_delivery.py draft dist/releases/1.5.16-build32 --dry-run
 ```
 
 `prepare-release.sh`는 사용자가 승인한 로컬 키체인 서명만 사용합니다. 실제 GitHub 쓰기는 별도 `draft`와 `promote` 명령입니다. `check`와 `--dry-run`은 GitHub에 접속하지 않습니다. 실제 HappyLulu 교체·재실행, 캘린더 권한·출근 기록·캘린더 연결 보존 증거가 이 ZIP 해시와 일치하지 않으면 승격하지 못합니다.

@@ -55,7 +55,7 @@ p{margin:0 0 1rem}
 .product-stage{position:relative;isolation:isolate;min-width:0;padding:3.9rem 2.25rem 1.6rem;background:var(--mint);border-radius:1.8rem}
 .stage-topline{position:absolute;top:1.25rem;left:1.5rem;right:1.5rem;display:flex;justify-content:space-between;color:var(--muted);font-size:.59rem;letter-spacing:.12em;font-weight:650}
 .stage-topline span:last-child{letter-spacing:.04em}
-.hero-icon{position:absolute;top:2.6rem;right:.25rem;width:112px;height:112px;z-index:2;transform:rotate(9deg);filter:drop-shadow(0 12px 10px #477b5e18)}
+.hero-icon{display:block;position:relative;margin:-1rem 0 1rem auto;width:112px;height:112px;z-index:2;transform:rotate(9deg);filter:drop-shadow(0 12px 10px #477b5e18)}
 .menubar{display:flex;align-items:center;justify-content:space-between;gap:.6rem;min-height:43px;padding:.55rem .9rem;border:1px solid #a8ceba;background:#c7e5d4;border-radius:.65rem .65rem 0 0;font-size:.65rem;color:#315e47}
 .menu-name{font-weight:700}
 .menu-status{margin-left:auto;border-radius:.3rem;padding:.1rem .45rem;background:#ffffff9c;color:#245a40;font-weight:600}
@@ -226,7 +226,7 @@ footer{border-top:1px solid var(--line);padding-block:2.5rem 1.7rem;margin-top:a
 .language-link{padding-left:.9rem}
 .hero{gap:2rem}
 .product-stage{padding-inline:1.5rem}
-.hero-icon{width:95px;height:95px;right:-.3rem}
+.hero-icon{width:95px;height:95px}
 .app-panel{padding-inline:1.2rem}
 .hero h1{font-size:clamp(3.4rem,7vw,5.1rem)}
 .hero-description{font-size:1rem}
@@ -252,7 +252,7 @@ footer{border-top:1px solid var(--line);padding-block:2.5rem 1.7rem;margin-top:a
 .hero-description br{display:none}
 .hero-description{max-width:32rem}
 .product-stage{width:min(100%,540px);justify-self:center;padding:4.5rem 2.5rem 1.7rem}
-.hero-icon{width:120px;height:120px;right:1rem}
+.hero-icon{width:120px;height:120px}
 .remaining-value{font-size:3rem}
 .hero-context{max-width:35rem}
 .feature-strip .wrap{font-size:.65rem;gap:.5rem;flex-wrap:wrap}
@@ -304,7 +304,7 @@ footer{border-top:1px solid var(--line);padding-block:2.5rem 1.7rem;margin-top:a
 .hero-context{font-size:.72rem}
 .product-stage{padding:3.8rem 1.3rem 1.4rem;border-radius:1.2rem}
 .stage-topline{left:1.3rem;right:1.3rem;font-size:.52rem}
-.hero-icon{width:92px;height:92px;right:.1rem;top:2.5rem}
+.hero-icon{width:92px;height:92px}
 .menubar{font-size:.59rem;padding-inline:.7rem}
 .app-panel{margin-right:.8rem;padding:1.25rem 1.1rem 1rem}
 .remaining-value{font-size:clamp(2.25rem,10vw,3rem)}
