@@ -11,6 +11,9 @@ final class AppearanceModel: ObservableObject {
     @Published private(set) var errorMessage: String?
     private let store: AppearanceStore
     private let originalIcon: NSImage
+    // SwiftUI requests previews again on navigation and refresh; render each built-in once.
+    private var builtInIcons: [AppearanceIcon: NSImage] = [:]
+    private lazy var iconContext = CIContext()
     var isReadOnly: Bool { store.isReadOnly }
     var background: Color { color(.background) }
     var sidebar: Color { color(.sidebar) }
@@ -97,6 +100,7 @@ final class AppearanceModel: ObservableObject {
                   let url = try? store.imageURL(filename), let image = NSImage(contentsOf: url) else { return originalIcon }
             return image
         }
+        if let image = builtInIcons[icon] { return image }
         let tint: String
         switch icon {
         case .mint: tint = "#52AC91"
@@ -111,8 +115,10 @@ final class AppearanceModel: ObservableObject {
         filter.setValue(CIColor(color: Self.nsColor(tint)), forKey: kCIInputColorKey)
         filter.setValue(1.0, forKey: kCIInputIntensityKey)
         guard let output = filter.outputImage,
-              let cgImage = CIContext().createCGImage(output, from: source.extent) else { return originalIcon }
-        return NSImage(cgImage: cgImage, size: originalIcon.size)
+              let cgImage = iconContext.createCGImage(output, from: source.extent) else { return originalIcon }
+        let image = NSImage(cgImage: cgImage, size: originalIcon.size)
+        builtInIcons[icon] = image
+        return image
     }
 
     private func applyIcon() {

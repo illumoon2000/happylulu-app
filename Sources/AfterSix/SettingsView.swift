@@ -154,6 +154,7 @@ struct SettingsView: View {
         Button(action: action) {
             Label(title, systemImage: symbol).frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 10).padding(.vertical, 9)
+                .contentShape(Rectangle())
                 .background(selected ? accent.opacity(0.13) : .clear, in: RoundedRectangle(cornerRadius: 6))
         }.buttonStyle(.plain).accessibilityAddTraits(selected ? .isSelected : [])
     }
