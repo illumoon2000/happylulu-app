@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>출근 시각 직접 수정 · HappyLulu</title>
+  <meta name="description" content="Mac의 네 자리 HH:mm 편집과 Windows 수동 입력, 저장 조건을 안내합니다.">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="icon" type="image/png" href="/assets/happylulu.png">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="alternate" hreflang="ko" href="/features/arrival-time/">
+  <link rel="alternate" hreflang="en" href="/en/features/arrival-time/">
+</head>
+<body data-page="guide">
+  <a class="skip-link" href="#main">본문으로 이동</a>
+  <div class="site-header-shell"><header class="site-header wrap" data-menu-open="false">
+    <a class="brand" href="/" aria-label="HappyLulu 처음으로"><img src="/assets/happylulu.png" width="40" height="40" alt=""><span>HappyLulu</span></a>
+    <a class="language-link" href="/en/features/arrival-time/" lang="en" aria-label="English page">English</a>
+    <button class="nav-toggle" type="button" aria-controls="site-nav" aria-expanded="false" aria-label="주 메뉴 열기" hidden><span class="menu-glyph" aria-hidden="true"><span></span><span></span><span></span></span><span>메뉴</span></button>
+    <nav class="site-nav" id="site-nav" aria-label="주 메뉴"><a href="/features/" aria-current="page">기능</a><a href="/guide/">사용 방법</a><a href="/releases/">릴리즈</a><a class="nav-download" href="/#download">다운로드</a></nav>
+  </header></div>
+  <main id="main" class="page-content" tabindex="-1">
+    <div class="section wrap detail-page">
+      <nav class="breadcrumbs" aria-label="현재 위치"><a href="/">홈</a><span aria-hidden="true">/</span><a href="/features/">기능</a><span aria-hidden="true">/</span><span aria-current="page">출근 시각 직접 수정</span></nav>
+      <div class="section-heading">
+        <p class="eyebrow">출근 시각 직접 수정</p>
+        <h1>빠진 출근도, 잘못된 시각도 직접.</h1>
+        <p>Mac의 네 자리 HH:mm 편집과 Windows 수동 입력, 저장 조건을 안내합니다.</p>
+        <div class="detail-meta"><span class="detail-badge">Mac 1.5.15 build31 · Windows 1.5.13</span></div>
+      </div>
+      <div class="detail-layout">
+        <nav class="detail-toc" aria-label="이 페이지에서"><a href="#overview">개요</a><a href="#how">사용 방법</a><a href="#example">예시</a><a href="#limits">지원 범위와 주의점</a><a href="#related">관련 기능</a></nav>
+        <div class="detail-body">
+          <section id="overview" aria-labelledby="overview-title"><h2 id="overview-title">오늘의 출근을 바로잡기</h2><p>앱을 늦게 켰거나 처음 기록된 시각이 실제 출근과 다르면 오늘 출근을 직접 입력합니다. 수동 입력은 자동 감지의 08:00 보정을 적용하지 않습니다.</p><p>Mac 1.5.15는 패널 안에서 네 자리 HH:mm을 수정합니다. Windows 1.5.13은 오늘 화면의 직접 입력 버튼과 별도 수동 입력 화면을 사용합니다.</p></section>
+          <section id="how" aria-labelledby="how-title"><h2 id="how-title">Mac과 Windows에서 입력하기</h2><ol><li>Mac 메뉴바에서 HappyLulu를 열고 출근 숫자를 누릅니다.</li><li>네 자리를 직접 입력하거나 각 자리 위 +·아래 − 버튼으로 조정합니다. 자리올림이나 순환은 하지 않습니다.</li><li>Enter, 다른 곳 클릭 또는 패널 닫기로 저장합니다. Escape는 취소합니다.</li><li>Windows에서는 트레이 아이콘을 왼쪽 클릭하고 직접 입력에서 오늘 시각과 근무 유형을 정한 뒤 저장합니다.</li></ol><p>Mac 설정 → 근무에서도 수동 출근을 수정할 수 있습니다. 시각만 바꾸면 기존 수동 근무 유형이나 자동 캘린더 판단을 유지합니다. 출근이 없을 때 Mac 편집기는 현재 시각을 제시하며, 숫자를 바꾸지 않고 닫아도 유효하면 저장합니다.</p></section>
+          <section id="example" aria-labelledby="example-title"><h2 id="example-title">09:10을 09:00으로 고치기</h2><p>현재 시각이 09:20이고 일반 근무 출근이 09:10이라면 09:00으로 수정할 수 있습니다. 기본 근무 8시간·휴게 1시간의 일반일에는 퇴근 예정이 18:10에서 18:00으로 바뀝니다.</p><p>09:20에 09:30을 넣으면 미래 시각이라 저장하지 않습니다. 06:30을 수동 입력해도 08:00로 보정하지 않으며, 허용 구간 밖이므로 저장하지 않습니다.</p></section>
+          <section id="limits" aria-labelledby="limits-title"><h2 id="limits-title">저장되는 시각의 조건</h2><p>일반·오후 반차는 08:00~10:00, 오전 반차는 13:00~15:00입니다. 마지막 분을 포함합니다. 오늘의 유효한 시각이어야 하며 미래 시각, 지난 날짜의 편집, 잘못된 HH:mm과 근무 유형에 맞지 않는 시각은 거부합니다.</p><div class="detail-callout"><p>Mac에서 잘못된 입력은 원래 기록을 유지하고 오류를 보여줍니다. 수동 출근 저장은 오늘 쉬는 날·연차로 멈춘 계산을 재개할 수 있으므로 저장 뒤 근무 유형과 퇴근 예정을 확인하세요.</p></div><p>Windows 1.5.13에는 Mac의 자리별 +/−와 패널 자동 저장 UI가 없습니다. 과거 기록을 채우는 기능이 아니라 오늘 출근을 바로잡는 기능입니다.</p></section>
+          <section id="related" aria-labelledby="related-title"><h2 id="related-title">관련 기능</h2><div class="detail-related"><a class="doc-card" href="/features/attendance/">자동 출근 기록 ↗</a><a class="doc-card" href="/features/workday-modes/">오늘 근무·휴가 ↗</a><a class="doc-card" href="/features/countdown/">퇴근 예정과 남은 시간 ↗</a><a class="doc-card" href="/releases/macos-1.5.15/">Mac 1.5.15 build31 릴리즈 ↗</a></div><p><a class="text-link" href="/features/">모든 기능 보기 ↗</a></p></section>
+        </div>
+      </div>
+    </div>
+  </main>
+  <footer class="wrap"><div class="footer-main"><a class="brand" href="/"><img src="/assets/happylulu.png" width="32" height="32" alt=""><span>HappyLulu</span></a><p>작은 번거로움은 덜고,<br>내 일에 집중.</p><nav class="footer-nav" aria-label="프로젝트 정보"><a href="https://github.com/young221718/happylulu-app">GitHub ↗</a><a href="/releases/">릴리즈</a><a href="/guide/">사용 안내</a><a href="https://github.com/young221718/happylulu-app/blob/main/LICENSE">라이선스 ↗</a></nav></div><p class="project-credits" aria-label="프로젝트 크레딧"><span>Tokens by <strong>lululab</strong></span><span aria-hidden="true">·</span><span>Chat by <strong>Chan-Young Choi</strong></span></p><div class="footer-bottom"><p><a href="https://github.com/young221718/happylulu-app/blob/main/LICENSE">비상업적 사용 · 코드 재사용 시 전체 소스 공개 조건.</a></p><p>회사의 공식 근태 시스템이 아닙니다.</p></div></footer>
+  <script src="/app.js" defer></script>
+</body>
+</html>
