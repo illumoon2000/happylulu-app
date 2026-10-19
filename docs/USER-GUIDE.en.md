@@ -2,7 +2,7 @@
 
 [Overview](../README.en.md) · [Downloads](../README.en.md#downloads) · [한국어](USER-GUIDE.md)
 
-Detailed installation, workday calculations, settings, calendars, records and updates. This guide describes **the public Mac 1.5.17 build33 release**. Public downloads are Mac 1.5.17 build33 and Windows 1.5.13.
+Detailed installation, workday calculations, settings, calendars, records and updates. This guide describes **the public Mac 1.5.18 build34 release**. Public downloads are Mac 1.5.18 build34 and Windows 1.5.13.
 
 [Getting started](#three-small-steps) · [Workday calculations](#how-a-day-is-calculated) · [Calendars](#calendars-when-you-need-them) · [Records and updates](#records-and-updates) · [Development and evidence](#development-and-evidence)
 
@@ -19,10 +19,10 @@ HappyLulu is a personal convenience tool, not the company's official attendance 
 
 | Edition | Version | Status |
 | --- | --- | --- |
-| [Public Mac download](https://github.com/young221718/happylulu-app/releases/tag/macos-v1.5.17-build33) | **1.5.17 · build33** | macOS 13+ · Universal DMG/ZIP · manual installation |
+| [Public Mac download](https://github.com/young221718/happylulu-app/releases/tag/macos-v1.5.18-build34) | **1.5.18 · build34** | macOS 13+ · Universal DMG/ZIP · manual installation |
 | [Public Windows download](https://github.com/young221718/happylulu-app/releases/tag/windows-v1.5.13) | **1.5.13** | Windows 10/11 x64 · .NET 10 Desktop Runtime required |
 
-The guide below describes **Mac 1.5.17**. Check the [Mac](../RELEASE-NOTES.md) and [Windows](../windows/RELEASE-NOTES.md) notes for features in each public version. Mac and Windows attendance records do not sync with each other.
+The guide below describes **Mac 1.5.18**. Check the [Mac](../RELEASE-NOTES.md) and [Windows](../windows/RELEASE-NOTES.md) notes for features in each public version. Mac and Windows attendance records do not sync with each other.
 
 ## Three small steps
 

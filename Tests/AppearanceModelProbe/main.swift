@@ -12,6 +12,8 @@ struct AppearanceModelProbe {
         let original = NSImage(contentsOf: source)!
         let store = AppearanceStore(rootDirectory: root, bundleIdentifier: "test.happylulu.appearance-model")
         let model = AppearanceModel(store: store, originalIcon: original)
+        let mint = model.image(for: .mint)
+        precondition(model.image(for: .mint) === mint, "Repeated preview requests must reuse the rendered icon")
         let expected: [(AppearancePalette, String)] = [(.softMint,"#E9EFEB"),(.warmStone,"#EEEAE3"),
             (.blueGray,"#E7EDF1"),(.dustyLavender,"#EEEAF1"),(.charcoal,"#252A2D")]
         for (palette, background) in expected {
@@ -30,20 +32,29 @@ struct AppearanceModelProbe {
         precondition(model.preferences == valid && model.errorMessage != nil)
         model.resetColors()
         precondition(model.errorMessage == nil && model.preferences.customColors.isEmpty)
+        precondition(model.image(for: .mint) === mint, "Palette and color edits must retain built-in previews")
         var images = Set<Data>()
         for icon in [AppearanceIcon.original,.mint,.blue,.lavender,.graphite] {
             model.selectIcon(icon)
             precondition(model.errorMessage == nil && model.preferences.icon == icon)
+            precondition(model.iconImage === model.image(for: icon), "Selection must reuse the preview image")
             guard let data = model.iconImage.tiffRepresentation else { preconditionFailure("Missing icon pixels") }
             images.insert(data)
             precondition(NSApplication.shared.applicationIconImage.size == model.iconImage.size)
         }
         precondition(images.count == 5, "Icon variants must produce five distinct images")
+        let otherOriginal = NSImage(cgImage: NSBitmapImageRep(data: originalBytes)!.cgImage!,
+            size: NSSize(width: 32, height: 32))
+        let other = AppearanceModel(store: AppearanceStore(rootDirectory: root,
+            bundleIdentifier: "test.happylulu.other-icon"), originalIcon: otherOriginal)
+        precondition(other.image(for: .mint) !== mint, "Built-in previews belong to each model's original icon")
+        precondition(other.image(for: .mint).size == otherOriginal.size)
         model.importIcon(from: source)
         precondition(model.errorMessage == nil && model.preferences.icon == .custom)
         let sourceAfter = try Data(contentsOf: source)
         precondition(sourceAfter == originalBytes)
         let custom = model.preferences
+        let customPixels = model.iconImage.tiffRepresentation
         let restarted = AppearanceModel(store: AppearanceStore(rootDirectory: root,
             bundleIdentifier:"test.happylulu.appearance-model"), originalIcon: original)
         precondition(restarted.preferences == custom && restarted.errorMessage == nil)
@@ -52,6 +63,9 @@ struct AppearanceModelProbe {
         try bitmap.representation(using: .jpeg, properties: [.compressionFactor:0.8])!.write(to: jpegURL)
         model.importIcon(from: jpegURL)
         precondition(model.errorMessage == nil && model.preferences.icon == .custom)
+        precondition(model.iconImage.tiffRepresentation == NSImage(contentsOf: jpegURL)!.tiffRepresentation,
+            "Custom replacement must show the latest imported image")
+        precondition(model.iconImage.tiffRepresentation != customPixels)
         let firstCopy = try store.imageURL(custom.customImageFilename!)
         precondition(!FileManager.default.fileExists(atPath: firstCopy.path), "Successful replacement must remove the superseded generated copy")
         let jpegBytes = try Data(contentsOf: jpegURL)
@@ -122,6 +136,6 @@ struct AppearanceModelProbe {
         protectedModel.selectPalette(.warmStone)
         let preserved = try Data(contentsOf:store.preferencesURL)
         precondition(preserved == corrupt)
-        print("PASS appearance model: five live palettes, HEX rejection/reset, five distinct runtime icons, PNG/JPEG import, superseded-copy cleanup after persistence, failed validation/save and restart preserve referenced images and original sources, corrupt bytes preserved")
+        print("PASS appearance model: five live palettes, HEX rejection/reset, five distinct cached runtime icons, per-model cache isolation, fresh PNG/JPEG replacement, superseded-copy cleanup after persistence, failed validation/save and restart preserve referenced images and original sources, corrupt bytes preserved")
     }
 }

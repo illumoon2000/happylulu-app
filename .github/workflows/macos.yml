@@ -68,6 +68,7 @@ jobs:
           bash scripts/check-clock-paste.sh
           bash scripts/check-panel-focus.sh
           bash scripts/check-appearance-model.sh
+          bash scripts/check-settings-navigation.sh
           bash scripts/check-plugin-architecture.sh
           bash scripts/check-plugin-isolation.sh
       - name: Check optional Daouoffice integration

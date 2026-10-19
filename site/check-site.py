@@ -120,9 +120,9 @@ legacy_routes = ("index.html", "en/index.html", "download/index.html", "features
                  "releases/index.html", "en/releases/index.html")
 features = ("attendance", "arrival-time", "workday-modes", "countdown", "history", "calendar",
             "plugins", "daouoffice", "leave-recognition", "appearance", "overtime", "updates")
-releases = {MAC_SLUG: MAC_TAG, "macos-1.5.16": "macos-v1.5.16-build32", "macos-1.5.15": "macos-v1.5.15-build31", "macos-1.5.14": "macos-v1.5.14-build30",
+releases = {MAC_SLUG: MAC_TAG, "macos-1.5.17": "macos-v1.5.17-build33", "macos-1.5.16": "macos-v1.5.16-build32", "macos-1.5.15": "macos-v1.5.15-build31", "macos-1.5.14": "macos-v1.5.14-build30",
             "windows-1.5.13": "windows-v1.5.13"}
-assert len(pages) == 46, "Preserve 44 existing routes and add both Mac 1.5.17 details"
+assert len(pages) == 48, "Preserve 46 existing routes and add both Mac 1.5.18 details"
 for route in legacy_routes:
     assert (DIST / route).resolve() in pages, route
 for prefix in ("", "en/"):
@@ -246,6 +246,8 @@ for entry in ("index.html", "en/index.html", "download/index.html"):
     assert REPO + "/releases/download/windows-v1.5.13/HappyLulu-1.5.13-windows-x64-runtime-required.zip" in page.links, entry
 # Versioned release bodies are historical records; shared navigation and cache queries remain outside this boundary.
 historical_release_bodies = {
+    'releases/macos-1.5.17/index.html': '93867c5d5370109ee689c1142532f0914843a8e532531301298f9e8c43cff500',
+    'en/releases/macos-1.5.17/index.html': 'd3f6a726d347bca91ce38595f0f35dec03912742934d85de9e24dace273e014d',
     'releases/macos-1.5.16/index.html': 'ed13a34893bd840ae7891f3d466b493cf62e0485a12f31f2b0971554a94d6e50',
     'releases/macos-1.5.15/index.html': '443b9db50a48aaa8a2f4eb87ad1df4c95074aad3b897cccaad04c9452f6e922d',
     'releases/macos-1.5.14/index.html': '637559d8e96348a59065333c462d266a72b86e685fb52c2bb3d44f91806aa9e7',
@@ -279,6 +281,12 @@ for prefix, phrases in (("", ("메뉴바에 퇴근 예정 시각 표시", "기�
         text = (DIST / prefix / route).read_text()
         for phrase in phrases:
             assert phrase in text, f"Explain departure visibility, ready-to-leave label and saved preference: {prefix}{route} {phrase}"
+# The latest release must describe both UI fixes, retained preference and signing/installation limits.
+for prefix, phrases in (("", ("렌더링 캐시", "반복", "사이드바", "여백", "1.5.17", "설치된 앱을 교체하거나", "권한을 대신 승인하지 않습니다", "고정 자체 인증서", "Sparkle", "공증은 적용하지 않았습니다")),
+                        ("en/", ("render cache", "repeated", "sidebar", "padded", "1.5.17", "does not replace the installed app", "accept permissions on your behalf", "fixed self-signed certificate", "Sparkle", "notarization are not applied"))):
+    current = (DIST / prefix / f"releases/{MAC_SLUG}/index.html").read_text()
+    for phrase in phrases:
+        assert phrase in current, f"Explain current fixes and release limits: {prefix} {phrase}"
 assert not any("/downloads/" in urlsplit(link).path for link in links), "Use GitHub release assets"
 for path in DIST.rglob("*"):
     assert not path.is_symlink(), path

@@ -2,7 +2,7 @@
 
 [제품 소개](../README.md) · [다운로드](../README.md#다운로드) · [English](USER-GUIDE.en.md)
 
-설치부터 근무 계산, 설정·캘린더·기록·업데이트까지 자세히 안내합니다. **Mac 1.5.17 build33 공개 버전 기준**입니다. 공개 다운로드는 Mac 1.5.17 build33과 Windows 1.5.13입니다.
+설치부터 근무 계산, 설정·캘린더·기록·업데이트까지 자세히 안내합니다. **Mac 1.5.18 build34 공개 버전 기준**입니다. 공개 다운로드는 Mac 1.5.18 build34과 Windows 1.5.13입니다.
 
 [설치와 시작](#세-단계로-시작하기) · [근무 계산](#하루를-계산하는-방법) · [캘린더](#캘린더도-필요할-때만) · [기록과 업데이트](#내-기록과-업데이트) · [개발과 검증](#개발과-검증)
 
@@ -19,10 +19,10 @@ HappyLulu는 개인 편의 도구입니다. 회사의 공식 근태 시스템이
 
 | 구분 | 버전 | 상태 |
 | --- | --- | --- |
-| [Mac 공개 다운로드](https://github.com/young221718/happylulu-app/releases/tag/macos-v1.5.17-build33) | **1.5.17 · build33** | macOS 13 이상 · Universal DMG/ZIP · 수동 설치 |
+| [Mac 공개 다운로드](https://github.com/young221718/happylulu-app/releases/tag/macos-v1.5.18-build34) | **1.5.18 · build34** | macOS 13 이상 · Universal DMG/ZIP · 수동 설치 |
 | [Windows 공개 다운로드](https://github.com/young221718/happylulu-app/releases/tag/windows-v1.5.13) | **1.5.13** | Windows 10/11 x64 · .NET 10 Desktop Runtime 필요 |
 
-아래 기능은 **Mac 1.5.17 기준**입니다. 공개 다운로드에 포함된 기능은 해당 [Mac](../RELEASE-NOTES.md)·[Windows](../windows/RELEASE-NOTES.md) 버전의 릴리즈 기록도 확인하세요. Mac과 Windows의 출퇴근 기록은 서로 동기화하지 않습니다.
+아래 기능은 **Mac 1.5.18 기준**입니다. 공개 다운로드에 포함된 기능은 해당 [Mac](../RELEASE-NOTES.md)·[Windows](../windows/RELEASE-NOTES.md) 버전의 릴리즈 기록도 확인하세요. Mac과 Windows의 출퇴근 기록은 서로 동기화하지 않습니다.
 
 ## 세 단계로 시작하기
 
