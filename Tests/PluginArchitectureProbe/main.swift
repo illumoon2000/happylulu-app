@@ -107,7 +107,9 @@ private func waitForArchitecture(_ message: String, _ condition: () -> Bool) asy
 @MainActor
 private func checkMenuCountdownDisplay(root: URL) throws {
     let defaults = UserDefaults.standard
-    let keys = ["HappyLuluCountdownDisplay", AppLanguage.key]
+    let departureKey = "HappyLuluShowDepartureInMenuBar"
+    let preservedPreferenceKey = "HappyLuluMenuVisibilityProbeUnrelatedPreference"
+    let keys = ["HappyLuluCountdownDisplay", departureKey, AppLanguage.key, preservedPreferenceKey]
     let saved = keys.map { defaults.object(forKey: $0) }
     defer {
         for (key, value) in zip(keys, saved) {
@@ -115,6 +117,9 @@ private func checkMenuCountdownDisplay(root: URL) throws {
             else { defaults.removeObject(forKey: key) }
         }
     }
+    let preservedPreference = Data("fixture appearance and updater settings".utf8)
+    defaults.set(preservedPreference, forKey: preservedPreferenceKey)
+    defaults.removeObject(forKey: departureKey)
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = TimeZone(identifier: "Asia/Seoul")!
     let fixtureCalendar = calendar
@@ -128,12 +133,18 @@ private func checkMenuCountdownDisplay(root: URL) throws {
     let store = StateStore(url: root.appendingPathComponent("menu-countdown.json"))
     try store.save(state)
     let original = try Data(contentsOf: store.url)
-    let manager = PluginManagerModel(defaultAdapter: ProbeAdapter("builtin"), routingStore: FeatureRoutingStore(url: nil))
+    let routingURL = root.appendingPathComponent("menu-feature-routing.json")
+    let originalRouting = Data(#"{"calendar":"builtin","leave":"builtin","halfDay":"builtin"}"#.utf8)
+    try originalRouting.write(to: routingURL)
+    let manager = PluginManagerModel(defaultAdapter: ProbeAdapter("builtin"), routingStore: FeatureRoutingStore(url: routingURL))
     func makeModel() -> AppModel {
         AppModel(store: store, featureRouter: manager.router, allowsLoginItemChanges: false,
                  nowProvider: { fixtureNow }, calendarProvider: { fixtureCalendar })
     }
     let model = makeModel()
+    require(model.showDepartureInMenuBar, "Existing users without the new preference must keep the departure clock")
+    var displayChanges = 0
+    let observation = model.objectWillChange.sink { _ in displayChanges += 1 }
     let samples: [(CountdownDisplay, String, String)] = [
         (.milliseconds, "5430000밀리초", "5430000 ms"),
         (.seconds, "5430초", "5430 sec"),
@@ -153,6 +164,25 @@ private func checkMenuCountdownDisplay(root: URL) throws {
             let restarted = makeModel()
             require(restarted.countdownDisplay == choice && restarted.menuTitle == expected,
                     "Menu countdown choice must survive model reload")
+            defaults.set(false, forKey: departureKey)
+            let hidden = makeModel()
+            let remainingOnly = language == .korean ? "\(remaining) 남음" : "\(remaining) left"
+            require(hidden.menuTitle == remainingOnly && hidden.countdownDisplay == choice,
+                    "Hidden departure preference must survive reload and preserve the countdown: \(hidden.menuTitle)")
+            let changesBeforeToggle = displayChanges
+            model.setShowDepartureInMenuBar(false)
+            require(displayChanges > changesBeforeToggle && model.menuTitle == remainingOnly,
+                    "Hiding the departure must publish an immediate menu update")
+            require(!defaults.bool(forKey: departureKey) && !makeModel().showDepartureInMenuBar,
+                    "The off selection must persist across model restart")
+            require(model.countdownDisplay == choice && model.countdownText == remaining && CountdownDisplay.saved() == choice,
+                    "Hiding the clock must preserve the selected countdown unit and work-panel text")
+            let changesBeforeRestore = displayChanges
+            model.setShowDepartureInMenuBar(true)
+            require(displayChanges > changesBeforeRestore && model.menuTitle == expected,
+                    "Showing the departure must publish an immediate menu update")
+            require(defaults.bool(forKey: departureKey) && makeModel().menuTitle == expected,
+                    "The on selection and countdown unit must persist across model restart")
         }
     }
     defaults.set(LanguageChoice.english.rawValue, forKey: AppLanguage.key)
@@ -160,14 +190,33 @@ private func checkMenuCountdownDisplay(root: URL) throws {
     fixtureNow = fixtureNow.addingTimeInterval(1)
     model.refresh()
     require(model.menuTitle == "Leave 18:00 · 5429 sec left", "Menu countdown must advance with the model clock")
+    model.setShowDepartureInMenuBar(false)
+    fixtureNow = fixtureNow.addingTimeInterval(1)
+    model.refresh()
+    require(model.menuTitle == "5428 sec left", "Countdown must keep advancing while the departure is hidden")
+    model.setCountdownDisplay(.milliseconds)
+    fixtureNow = fixtureNow.addingTimeInterval(0.25)
+    model.refresh()
+    require(model.menuTitle == "5427750 ms left", "Hidden departure must preserve subsecond countdown updates")
     fixtureNow = model.departure!
     model.refresh()
+    require(model.menuTitle == "Ready to leave", "At departure, hidden clock must leave a meaningful status without zero countdown")
+    defaults.set(LanguageChoice.korean.rawValue, forKey: AppLanguage.key)
+    require(model.menuTitle == "퇴근 가능", "Hidden departure completion status must support Korean")
+    defaults.set(LanguageChoice.english.rawValue, forKey: AppLanguage.key)
+    model.setShowDepartureInMenuBar(true)
     require(model.menuTitle == "Leave 18:00", "At departure, preserve the clock without a zero countdown")
     fixtureNow = fixtureNow.addingTimeInterval(60)
     model.refresh()
     require(model.menuTitle == "Leave 18:00", "After departure, preserve the clock without a negative countdown")
+    model.setShowDepartureInMenuBar(false)
+    require(model.menuTitle == "Ready to leave", "After departure, hidden clock must not return or show a negative countdown")
     let unchanged = try Data(contentsOf: store.url)
     require(unchanged == original, "Countdown display changes must not mutate attendance")
+    let unchangedRouting = try Data(contentsOf: routingURL)
+    require(unchangedRouting == originalRouting, "Menu visibility changes must preserve feature routing bytes")
+    require(defaults.data(forKey: preservedPreferenceKey) == preservedPreference,
+            "Menu visibility changes must preserve unrelated preference bytes")
     require(model.setDayType(.annualLeave) && model.menuTitle == "Leave day", "Leave day must not show a countdown")
     model.skipToday()
     require(model.menuTitle == "Day off today", "Skipped day must not show a countdown")
@@ -175,7 +224,8 @@ private func checkMenuCountdownDisplay(root: URL) throws {
         featureRouter: manager.router, allowsLoginItemChanges: false,
         nowProvider: { fixtureNow }, calendarProvider: { fixtureCalendar })
     require(emptyModel.menuTitle == "Waiting for arrival", "Missing arrival must not show a countdown")
-    print("PASS menu countdown: five units, Korean/English, immediate change/reload, clock advance, departure boundary, leave/skip/waiting and attendance preservation")
+    withExtendedLifetime(observation) {}
+    print("PASS menu countdown/clock visibility: default-on, five units, Korean/English, off/on persistence and immediate publication, reload, hidden seconds/subseconds, departure boundary, leave/skip/waiting, attendance/routing/unrelated preference byte preservation")
 }
 
 @MainActor
@@ -751,6 +801,14 @@ private func checkLeaveGateInvalidation(root: URL) async throws {
 struct PluginArchitectureChecks {
     @MainActor
     static func main() async throws {
+        // Keep legacy menu assertions independent of a previous probe's saved toggle.
+        let departureKey = "HappyLuluShowDepartureInMenuBar"
+        let savedDepartureVisibility = UserDefaults.standard.object(forKey: departureKey)
+        UserDefaults.standard.removeObject(forKey: departureKey)
+        defer {
+            if let savedDepartureVisibility { UserDefaults.standard.set(savedDepartureVisibility, forKey: departureKey) }
+            else { UserDefaults.standard.removeObject(forKey: departureKey) }
+        }
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("HappyLulu-architecture-" + UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }

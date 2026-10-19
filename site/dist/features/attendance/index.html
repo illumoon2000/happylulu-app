@@ -7,7 +7,7 @@
   <meta name="description" content="로그인·잠금 해제를 바탕으로 출근을 기록하는 조건과 수동 보정 방법을 알아보세요.">
   <meta name="theme-color" content="#ffffff">
   <link rel="icon" type="image/png" href="/assets/happylulu.png">
-  <link rel="stylesheet" href="/style.css?v=macos-v1.5.16-build32">
+  <link rel="stylesheet" href="/style.css?v=macos-v1.5.17-build33">
   <link rel="alternate" hreflang="ko" href="/features/attendance/">
   <link rel="alternate" hreflang="en" href="/en/features/attendance/">
 </head>
@@ -26,7 +26,7 @@
         <p class="eyebrow">자동 출근 기록</p>
         <h1>관측한 첫 출근을, 내 컴퓨터에.</h1>
         <p>로그인·잠금 해제를 바탕으로 출근을 기록하는 조건과 수동 보정 방법을 알아보세요.</p>
-        <div class="detail-meta"><span class="detail-badge">Mac 1.5.16 build32 · Windows 1.5.13</span></div>
+        <div class="detail-meta"><span class="detail-badge">Mac 1.5.17 build33 · Windows 1.5.13</span></div>
       </div>
       <div class="docs-article">
         <nav class="docs-toc" aria-label="이 페이지에서"><a href="#overview">개요</a><a href="#how">사용 방법</a><a href="#example">예시</a><a href="#limits">지원 범위와 주의점</a><a href="#related">관련 기능</a></nav>
@@ -35,12 +35,12 @@
           <section id="how" aria-labelledby="how-title"><h2 id="how-title">자동 기록을 사용하는 방법</h2><ol><li>앱을 설치해 실행하고 근무·휴게시간을 설정합니다.</li><li>필요하면 로그인 자동 실행을 켭니다. Mac은 첫 실행에 등록을 시도하며, Windows는 설정에서 직접 켭니다.</li><li>허용 시간에 관측한 첫 로그인·잠금 해제 뒤 오늘 출근 시각을 확인합니다.</li><li>이미 출근했거나 집에서 먼저 기록됐다면 출근 시각을 직접 수정합니다.</li></ol><p>자동 감지는 로컬 시각 06:00부터입니다. 일반·오후 반차의 06:00~07:59:59 감지는 같은 날 08:00로 기록합니다. 06:00 이전은 제외하고, 오전 반차 구간은 13:00~15:00입니다.</p></section>
           <section id="example" aria-labelledby="example-title"><h2 id="example-title">이른 아침 잠금 해제 예시</h2><p>일반 근무일 06:30에 첫 유효 잠금 해제를 감지하면 출근은 08:00로 저장합니다. 근무 8시간·휴게 1시간이면 퇴근 예정은 17:00입니다. 마지막 금요일 등 단축이 없는 날의 예시입니다.</p><p>09:10에 다시 잠금을 해제해도 08:00 기록은 유지합니다. 앱이 꺼져 있던 06:30의 이벤트는 나중에 복원하지 않습니다.</p></section>
           <section id="limits" aria-labelledby="limits-title"><h2 id="limits-title">기록의 범위와 주의점</h2><p>일반 수동 실행, 절전 복귀, 세션 활성화만으로 출근을 만들지 않습니다. 회사 위치·Wi-Fi를 판별하지 않으므로 집에서 잠금을 해제해도 기록될 수 있습니다.</p><p>오늘 쉬는 날은 확인 후 오늘 출근을 지우고 자동 기록을 멈춥니다. 수동 출근 저장으로 재개합니다. Mac의 연차/공가는 기존 출근을 보존하는 별도 선택입니다.</p><div class="detail-callout"><p>앱은 실제 퇴근을 감지해 기록하지 않습니다. 퇴근 예정은 계산값이며 회사의 공식 근태·급여 증빙을 대신하지 않습니다. Mac과 Windows 기록은 서로 동기화하지 않습니다.</p></div></section>
-          <section id="related" aria-labelledby="related-title"><h2 id="related-title">관련 기능</h2><div class="detail-related"><a class="doc-card" href="/features/arrival-time/">출근 시각 직접 수정 ↗</a><a class="doc-card" href="/features/workday-modes/">오늘 근무·휴가 ↗</a><a class="doc-card" href="/features/history/">출근 기록과 월별 캘린더 ↗</a><a class="doc-card" href="/releases/macos-1.5.16/">Mac 1.5.16 build32 릴리즈 ↗</a></div><p><a class="text-link" href="/features/">모든 기능 보기 ↗</a></p></section>
+          <section id="related" aria-labelledby="related-title"><h2 id="related-title">관련 기능</h2><div class="detail-related"><a class="doc-card" href="/features/arrival-time/">출근 시각 직접 수정 ↗</a><a class="doc-card" href="/features/workday-modes/">오늘 근무·휴가 ↗</a><a class="doc-card" href="/features/history/">출근 기록과 월별 캘린더 ↗</a><a class="doc-card" href="/releases/macos-1.5.17/">Mac 1.5.17 build33 릴리즈 ↗</a></div><p><a class="text-link" href="/features/">모든 기능 보기 ↗</a></p></section>
         </div>
       </div>
     </div></div></div>
   </main>
   <footer class="wrap"><div class="footer-main"><a class="brand" href="/"><img src="/assets/happylulu.png" width="32" height="32" alt=""><span>HappyLulu</span></a><p>작은 번거로움은 덜고,<br>내 일에 집중.</p><nav class="footer-nav" aria-label="프로젝트 정보"><a href="https://github.com/young221718/happylulu-app">GitHub ↗</a><a href="/releases/">릴리즈</a><a href="/guide/">사용 안내</a><a href="https://github.com/young221718/happylulu-app/blob/main/LICENSE">라이선스 ↗</a></nav></div><p class="project-credits" aria-label="프로젝트 크레딧"><span>Tokens by <strong>lululab</strong></span><span aria-hidden="true">·</span><span>Chat by <strong>Chan-Young Choi</strong></span></p><div class="footer-bottom"><p><a href="https://github.com/young221718/happylulu-app/blob/main/LICENSE">비상업적 사용 · 코드 재사용 시 전체 소스 공개 조건.</a></p><p>회사의 공식 근태 시스템이 아닙니다.</p></div></footer>
-  <script src="/app.js?v=macos-v1.5.16-build32" defer></script>
+  <script src="/app.js?v=macos-v1.5.17-build33" defer></script>
 </body>
 </html>

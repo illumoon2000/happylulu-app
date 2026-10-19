@@ -52,3 +52,12 @@ HappyLulu는 오늘의 출근 기록과 근무 설정으로 계산한 예정 퇴
 - [이슈 #8](https://github.com/young221718/happylulu-app/issues/8): 추가 시간과 2시간 기준 표시.
 - [이슈 #11](https://github.com/young221718/happylulu-app/issues/11): 퇴근까지 남은 시간 표시 단위 선택.
 - [후속 이슈 #37](https://github.com/young221718/happylulu-app/issues/37): Mac 1.5.12 표시 확인과 사용 설명.
+
+## Mac 메뉴바의 퇴근 예정 시각 표시
+
+- 일반 설정의 **메뉴바에 퇴근 예정 시각 표시**(영어: **Show expected departure in menu bar**)는 기본값이 켜짐이다. 저장값이 없는 기존 설치도 켜짐으로 처리한다.
+- 켜면 예정 퇴근 전에는 `퇴근 18:00 · 91분 남음`처럼 예정 시각과 선택 단위의 카운트다운을 함께 표시하고, 예정 시각부터는 기존처럼 `퇴근 18:00`만 표시한다.
+- 끄면 예정 시각만 숨기고 `91분 남음`처럼 선택 단위의 카운트다운을 표시한다. 예정 시각부터는 음수·빈 제목·예정 시각 대신 `퇴근 가능`을 표시한다. 영어는 `91 min left`, `Ready to leave`이다.
+- 변경은 즉시 반영하고 앱 재실행 후에도 유지한다. 단위 선택과 갱신 주기는 그대로이며 출퇴근 기록, 다른 설정과 플러그인 연결을 변경하지 않는다.
+- 출근 대기, 연차/공가, 오늘 쉬는 날의 제목과 퇴근 시각 계산은 바꾸지 않는다.
+- 검증: `bash scripts/check-plugin-architecture.sh`에서 저장값 없음·명시적 켜짐·꺼짐·토글·모델 재생성, 한영 5개 단위, 시계 진행·예정 시각 경계, 휴무 상태와 fixture 바이트 보존을 확인한다. `swift run --build-system native AfterSixChecks`로 기존 근무 계산과 표시 검사를 실행한다.
