@@ -3,6 +3,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlsplit
 import json
+import hashlib
 import plistlib
 import re
 
@@ -119,9 +120,9 @@ legacy_routes = ("index.html", "en/index.html", "download/index.html", "features
                  "releases/index.html", "en/releases/index.html")
 features = ("attendance", "arrival-time", "workday-modes", "countdown", "history", "calendar",
             "plugins", "daouoffice", "leave-recognition", "appearance", "overtime", "updates")
-releases = {MAC_SLUG: MAC_TAG, "macos-1.5.15": "macos-v1.5.15-build31", "macos-1.5.14": "macos-v1.5.14-build30",
+releases = {MAC_SLUG: MAC_TAG, "macos-1.5.16": "macos-v1.5.16-build32", "macos-1.5.15": "macos-v1.5.15-build31", "macos-1.5.14": "macos-v1.5.14-build30",
             "windows-1.5.13": "windows-v1.5.13"}
-assert len(pages) == 44, "Preserve 42 existing routes and add both Mac 1.5.16 details"
+assert len(pages) == 46, "Preserve 44 existing routes and add both Mac 1.5.17 details"
 for route in legacy_routes:
     assert (DIST / route).resolve() in pages, route
 for prefix in ("", "en/"):
@@ -243,6 +244,20 @@ for entry in ("index.html", "en/index.html", "download/index.html"):
         expected = REPO + f"/releases/download/{MAC_TAG}/" + asset
         assert expected in page.links, f"Primary Mac download must match app metadata: {entry} {asset}"
     assert REPO + "/releases/download/windows-v1.5.13/HappyLulu-1.5.13-windows-x64-runtime-required.zip" in page.links, entry
+# Versioned release bodies are historical records; shared navigation and cache queries remain outside this boundary.
+historical_release_bodies = {
+    'releases/macos-1.5.16/index.html': 'ed13a34893bd840ae7891f3d466b493cf62e0485a12f31f2b0971554a94d6e50',
+    'releases/macos-1.5.15/index.html': '443b9db50a48aaa8a2f4eb87ad1df4c95074aad3b897cccaad04c9452f6e922d',
+    'releases/macos-1.5.14/index.html': '637559d8e96348a59065333c462d266a72b86e685fb52c2bb3d44f91806aa9e7',
+    'releases/windows-1.5.13/index.html': '07e3a30ead8025f1b0ab64218c9eac065dc09f9bab8aee24d3c67ccce499a94b',
+    'en/releases/macos-1.5.16/index.html': '067300278ad47fe8a60c6a27e6b3c00f87c1ed3f60630d29d0a6b1a8cc1114df',
+    'en/releases/macos-1.5.15/index.html': '7d0e2222483567fedd5ddfae69f30443c9a615692e293c4279cc4414ab8e9684',
+    'en/releases/macos-1.5.14/index.html': 'c677d3cea685f60b90e6b4e2788a54a80da08d2efebd9587efcf17425773315d',
+    'en/releases/windows-1.5.13/index.html': '50f429c34d17010d0a47daf9d3625a5a2355987eeabe48c2041839f2c75c6ed2',
+}
+for route, digest in historical_release_bodies.items():
+    body = (DIST / route).read_text().split('<div class="docs-article detail-body">', 1)[1].split("\n  <footer", 1)[0]
+    assert hashlib.sha256(body.encode()).hexdigest() == digest, f"Preserve historical release body and downloads: {route}"
 # Historical Mac badges may change, but the Windows platform statement must stay intact.
 for prefix, windows_statement in (("", "Windows 최신 공개 버전은 1.5.13입니다."),
                                    ("en/", "The latest public Windows release remains 1.5.13.")):
@@ -257,6 +272,13 @@ for prefix, phrases in (("", ("퇴근 18:00 · 91분 남음", "즉시", "밀리�
     for route in ("index.html", "guide/index.html", "features/countdown/index.html"):
         document = (DIST / prefix / route).read_text()
         assert f"/{prefix}releases/{MAC_SLUG}/" in document, f"Current release link must match app metadata: {prefix}{route}"
+# Describe the new departure visibility preference separately from the countdown unit.
+for prefix, phrases in (("", ("메뉴바에 퇴근 예정 시각 표시", "기본은 켜짐", "91분 남음", "퇴근 가능", "재시작", "즉시")),
+                        ("en/", ("Show expected departure in menu bar", "on by default", "91 min left", "Ready to leave", "restart", "immediately"))):
+    for route in ("features/countdown/index.html", "guide/index.html", f"releases/{MAC_SLUG}/index.html"):
+        text = (DIST / prefix / route).read_text()
+        for phrase in phrases:
+            assert phrase in text, f"Explain departure visibility, ready-to-leave label and saved preference: {prefix}{route} {phrase}"
 assert not any("/downloads/" in urlsplit(link).path for link in links), "Use GitHub release assets"
 for path in DIST.rglob("*"):
     assert not path.is_symlink(), path

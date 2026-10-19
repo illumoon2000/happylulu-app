@@ -108,7 +108,8 @@ private func waitForArchitecture(_ message: String, _ condition: () -> Bool) asy
 private func checkMenuCountdownDisplay(root: URL) throws {
     let defaults = UserDefaults.standard
     let departureKey = "HappyLuluShowDepartureInMenuBar"
-    let keys = ["HappyLuluCountdownDisplay", departureKey, AppLanguage.key]
+    let preservedPreferenceKey = "HappyLuluMenuVisibilityProbeUnrelatedPreference"
+    let keys = ["HappyLuluCountdownDisplay", departureKey, AppLanguage.key, preservedPreferenceKey]
     let saved = keys.map { defaults.object(forKey: $0) }
     defer {
         for (key, value) in zip(keys, saved) {
@@ -116,6 +117,8 @@ private func checkMenuCountdownDisplay(root: URL) throws {
             else { defaults.removeObject(forKey: key) }
         }
     }
+    let preservedPreference = Data("fixture appearance and updater settings".utf8)
+    defaults.set(preservedPreference, forKey: preservedPreferenceKey)
     defaults.removeObject(forKey: departureKey)
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = TimeZone(identifier: "Asia/Seoul")!
@@ -130,7 +133,10 @@ private func checkMenuCountdownDisplay(root: URL) throws {
     let store = StateStore(url: root.appendingPathComponent("menu-countdown.json"))
     try store.save(state)
     let original = try Data(contentsOf: store.url)
-    let manager = PluginManagerModel(defaultAdapter: ProbeAdapter("builtin"), routingStore: FeatureRoutingStore(url: nil))
+    let routingURL = root.appendingPathComponent("menu-feature-routing.json")
+    let originalRouting = Data(#"{"calendar":"builtin","leave":"builtin","halfDay":"builtin"}"#.utf8)
+    try originalRouting.write(to: routingURL)
+    let manager = PluginManagerModel(defaultAdapter: ProbeAdapter("builtin"), routingStore: FeatureRoutingStore(url: routingURL))
     func makeModel() -> AppModel {
         AppModel(store: store, featureRouter: manager.router, allowsLoginItemChanges: false,
                  nowProvider: { fixtureNow }, calendarProvider: { fixtureCalendar })
@@ -207,6 +213,10 @@ private func checkMenuCountdownDisplay(root: URL) throws {
     require(model.menuTitle == "Ready to leave", "After departure, hidden clock must not return or show a negative countdown")
     let unchanged = try Data(contentsOf: store.url)
     require(unchanged == original, "Countdown display changes must not mutate attendance")
+    let unchangedRouting = try Data(contentsOf: routingURL)
+    require(unchangedRouting == originalRouting, "Menu visibility changes must preserve feature routing bytes")
+    require(defaults.data(forKey: preservedPreferenceKey) == preservedPreference,
+            "Menu visibility changes must preserve unrelated preference bytes")
     require(model.setDayType(.annualLeave) && model.menuTitle == "Leave day", "Leave day must not show a countdown")
     model.skipToday()
     require(model.menuTitle == "Day off today", "Skipped day must not show a countdown")
@@ -215,7 +225,7 @@ private func checkMenuCountdownDisplay(root: URL) throws {
         nowProvider: { fixtureNow }, calendarProvider: { fixtureCalendar })
     require(emptyModel.menuTitle == "Waiting for arrival", "Missing arrival must not show a countdown")
     withExtendedLifetime(observation) {}
-    print("PASS menu countdown/clock visibility: default-on, five units, Korean/English, off/on persistence and immediate publication, reload, hidden seconds/subseconds, departure boundary, leave/skip/waiting and attendance preservation")
+    print("PASS menu countdown/clock visibility: default-on, five units, Korean/English, off/on persistence and immediate publication, reload, hidden seconds/subseconds, departure boundary, leave/skip/waiting, attendance/routing/unrelated preference byte preservation")
 }
 
 @MainActor
