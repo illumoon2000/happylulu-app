@@ -83,7 +83,7 @@ for (const sidebar of document.querySelectorAll("[data-section-nav]")) {
 for (const option of document.querySelectorAll('input[name="day-mode"]')) {
   option.addEventListener("change", () => {
     const earlyFriday = option.value === "friday";
-    const remaining = english ? (earlyFriday ? "47m" : "2h 47m") : (earlyFriday ? "47분" : "2시간 47분");
+    const remaining = english ? (earlyFriday ? "47 min" : "2 hr 47 min") : (earlyFriday ? "47분" : "2시간 47분");
     const leave = earlyFriday ? "15:47" : "17:47";
     for (const element of document.querySelectorAll("[data-countdown]")) element.textContent = remaining;
     for (const element of document.querySelectorAll("[data-leave]")) element.textContent = leave;
