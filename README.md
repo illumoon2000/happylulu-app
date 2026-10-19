@@ -25,10 +25,10 @@
 
 | 운영체제 | 바로 받기 | 실행 조건 · 안내 |
 | --- | --- | --- |
-| **Mac 1.5.15 · build31** | [DMG 다운로드](https://github.com/young221718/happylulu-app/releases/download/macos-v1.5.15-build31/HappyLulu-1.5.15-universal.dmg) · [ZIP](https://github.com/young221718/happylulu-app/releases/download/macos-v1.5.15-build31/HappyLulu-1.5.15-universal.zip) | macOS 13 이상 · Universal · [릴리즈·체크섬](https://github.com/young221718/happylulu-app/releases/tag/macos-v1.5.15-build31) |
+| **Mac 1.5.16 · build32** | [DMG 다운로드](https://github.com/young221718/happylulu-app/releases/download/macos-v1.5.16-build32/HappyLulu-1.5.16-universal.dmg) · [ZIP](https://github.com/young221718/happylulu-app/releases/download/macos-v1.5.16-build32/HappyLulu-1.5.16-universal.zip) | macOS 13 이상 · Universal · [릴리즈·체크섬](https://github.com/young221718/happylulu-app/releases/tag/macos-v1.5.16-build32) |
 | **Windows 1.5.13** | [ZIP 다운로드](https://github.com/young221718/happylulu-app/releases/download/windows-v1.5.13/HappyLulu-1.5.13-windows-x64-runtime-required.zip) | Windows 10/11 x64 · .NET 10 Desktop Runtime x64 필요 · [설치 안내](windows/README.md) |
 
-**Mac 1.5.15 · build31**은 컴팩트한 오늘 화면, 네 자리 출근 시각 편집과 자동 저장, 다섯 근무 유형, 선택 플러그인과 테마·아이콘 설정을 제공합니다. 캘린더·다우오피스·휴가 자동 인식의 범위와 개발자는 [플러그인 안내](docs/PLUGINS.md)를 확인하세요. Windows는 1.5.13을 유지하며 캘린더 동기화와 앱 자체 자동 업데이트가 없습니다. [릴리즈 노트](RELEASE-NOTES.md)와 [배포 절차](DEPLOYMENT.md)에서 설치·권한 보존 검증 범위를 구분합니다.
+**Mac 1.5.16 · build32**은 메뉴바에 퇴근 예정 시각과 선택한 단위의 남은 시간을 함께 표시합니다. 시·분·초·시/분·밀리초 설정이 바로 반영되며 기존 오늘 화면, 출근 시각 편집, 근무 유형, 플러그인·외관 설정을 포함합니다. 캘린더·다우오피스·휴가 자동 인식의 범위와 개발자는 [플러그인 안내](docs/PLUGINS.md)를 확인하세요. Windows는 1.5.13을 유지하며 캘린더 동기화와 앱 자체 자동 업데이트가 없습니다. [릴리즈 노트](RELEASE-NOTES.md)와 [배포 절차](DEPLOYMENT.md)에서 설치·권한 보존 검증 범위를 구분합니다.
 
 <a id="세-단계로-시작하기"></a>
 
