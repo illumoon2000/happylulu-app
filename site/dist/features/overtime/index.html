@@ -20,7 +20,7 @@
     <nav class="site-nav" id="site-nav" aria-label="주 메뉴"><a href="/features/" aria-current="page">기능</a><a href="/guide/">사용 방법</a><a href="/releases/">릴리즈</a><a class="nav-download" href="/#download">다운로드</a></nav>
   </header></div>
   <main id="main" class="page-content" tabindex="-1">
-    <div class="section wrap">
+    <div class="section wrap detail-page documentation-page"><div class="docs-layout"><aside class="section-sidebar" data-section-nav><p class="section-nav-title">기능 안내</p><button class="section-nav-toggle" data-section-nav-toggle type="button" aria-controls="feature-navigation" aria-expanded="false" aria-label="기능 선택" hidden><span>기능 선택</span><strong>예정 퇴근 이후 안내</strong><span class="section-nav-chevron" aria-hidden="true">⌄</span></button><nav id="feature-navigation" class="section-nav-links" aria-label="기능 목록"><a href="/features/">전체 기능</a><div class="section-nav-group"><p class="section-nav-group-title">기록과 근무</p><a href="/features/attendance/">출근 자동 기록</a><a href="/features/arrival-time/">출근 시각 수정</a><a href="/features/workday-modes/">오늘의 근무 유형</a><a href="/features/history/">출근 기록 살펴보기</a></div><div class="section-nav-group"><p class="section-nav-group-title">확인과 개인화</p><a href="/features/countdown/">시간을 보는 방식</a><a href="/features/overtime/" aria-current="page">예정 퇴근 이후 안내</a><a href="/features/appearance/">색상과 앱 아이콘</a><a href="/features/updates/">앱 업데이트</a></div><div class="section-nav-group"><p class="section-nav-group-title">필요할 때 연결</p><a href="/features/plugins/">플러그인 관리</a><a href="/features/calendar/">일정과 캘린더 연결</a><a href="/features/daouoffice/">다우오피스 조회</a><a href="/features/leave-recognition/">반차 자동 인식</a></div></nav></aside><div class="docs-content">
       <nav class="breadcrumbs" aria-label="현재 위치"><a href="/">홈</a><span aria-hidden="true">/</span><a href="/features/">기능</a></nav>
       <div class="section-heading">
         <p class="eyebrow">AFTER YOUR SCHEDULED DEPARTURE</p>
@@ -28,8 +28,8 @@
         <p>퇴근 시각을 다시 계산하지 않아도 되도록, HappyLulu가 예정 퇴근 뒤 얼마나 지났는지와 2시간 기준까지 남은 시간을 알려드려요.</p>
         <p class="detail-meta"><span class="detail-badge">Mac 1.5.15 · Windows 1.5.13</span></p>
       </div>
-      <div class="detail-layout">
-        <nav class="detail-toc" aria-label="이 페이지에서"><a href="#overview">개요</a><a href="#how">사용 방법</a><a href="#example">예시</a><a href="#limits">지원 범위와 주의점</a><a href="#related">관련 기능</a></nav>
+      <div class="docs-article">
+        <nav class="docs-toc" aria-label="이 페이지에서"><a href="#overview">개요</a><a href="#how">사용 방법</a><a href="#example">예시</a><a href="#limits">지원 범위와 주의점</a><a href="#related">관련 기능</a></nav>
         <div class="detail-body"><section id="overview" aria-labelledby="overview-title"><h2 id="overview-title">개요</h2><p>Mac과 Windows 1.5.13에서 같은 시간 기준을 사용해요. 표시 시각은 실제 근무 시간이 아니라 앱이 계산한 예정 퇴근 시각을 기준으로 합니다.</p></section><section id="how" aria-labelledby="how-title"><h2 id="how-title">사용 방법</h2><ol><li>오늘의 출근 기록과 근무 유형을 확인합니다.</li><li>앱이 계산한 예정 퇴근 시각을 기준으로 안내를 확인합니다.</li><li>예정 퇴근 30분 뒤부터 추가 경과 분, 120분 뒤부터 2시간 기준 도달을 확인합니다.</li></ol></section><section id="example" aria-labelledby="example-title"><h2 id="example-title">예시</h2><div class="how-grid" aria-label="18시 예정 퇴근 예시">
         <article><span class="feature-number">18:29</span><h3>추가 시간 표시 전</h3><p>예정 퇴근 18:00에서 30분이 되기 전이에요. 2시간 기준인 20:00까지 91분 남았어요.</p></article>
         <article><span class="feature-number">18:30</span><h3>추가 30분 중</h3><p>예정 퇴근 시각에서 30분이 되는 순간부터 경과 분을 보여줘요. 2시간 기준까지 90분 남았어요.</p></article>
@@ -40,7 +40,7 @@
         <article><span class="feature-number">안내만</span><h3>출근 기록이 없으면 표시하지 않아요</h3><p>오늘 출근 기록이 없거나 오늘 쉬는 날로 표시하면 예정 퇴근 이후 안내도 숨겨요.</p></article>
       </div></section><section id="limits" aria-labelledby="limits-title"><h2 id="limits-title">지원 범위와 주의점</h2><p>이 시간 안내는 실제로 일했는지 확인하거나 식대·급여 지급을 승인하지 않아요. 회사의 공식 근태 기록을 대신하지 않는 개인용 참고 정보예요.</p><p>Mac 1.5.15 build31과 Windows 1.5.13의 시간 안내입니다. Mac 1.5.15의 오늘 근무 유형 선택 UI는 Windows 1.5.13에 포함되지 않습니다.</p></section><section id="related" aria-labelledby="related-title"><h2 id="related-title">관련 기능</h2><div class="detail-related"><a class="doc-card" href="/features/countdown/"><h3>퇴근 카운트다운</h3><p>사용 방법 자세히 보기 ↗</p></a><a class="doc-card" href="/features/workday-modes/"><h3>오늘의 근무 유형</h3><p>사용 방법 자세히 보기 ↗</p></a><a class="doc-card" href="/features/arrival-time/"><h3>출근 시각 수정</h3><p>사용 방법 자세히 보기 ↗</p></a><a class="doc-card" href="/releases/macos-1.5.15/"><h3>Mac 1.5.15 build31</h3><p>릴리즈 자세히 보기 ↗</p></a></div></section></div>
       </div>
-    </div>
+    </div></div></div>
   </main>
   <footer class="wrap"><div class="footer-main"><a class="brand" href="/"><img src="/assets/happylulu.png" width="32" height="32" alt=""><span>HappyLulu</span></a><p>작은 번거로움은 덜고,<br>내 일에 집중.</p><nav class="footer-nav" aria-label="프로젝트 정보"><a href="https://github.com/young221718/happylulu-app">GitHub ↗</a><a href="/releases/">릴리즈</a><a href="/guide/">사용 안내</a><a href="https://github.com/young221718/happylulu-app/blob/main/LICENSE">라이선스 ↗</a></nav></div><p class="project-credits" aria-label="프로젝트 크레딧"><span>Tokens by <strong>lululab</strong></span><span aria-hidden="true">·</span><span>Chat by <strong>Chan-Young Choi</strong></span></p><div class="footer-bottom"><p><a href="https://github.com/young221718/happylulu-app/blob/main/LICENSE">비상업적 사용 · 코드 재사용 시 전체 소스 공개 조건.</a></p><p>회사의 공식 근태 시스템이 아닙니다.</p></div></footer>
   <script src="/app.js" defer></script>
