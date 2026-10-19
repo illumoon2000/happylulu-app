@@ -47,7 +47,7 @@ Mac puts settings in one window with a sidebar, including Calendar.
 | Installed plugins | Calendar sync, Daouoffice connection and half-day recognition settings |
 | Updates | Version and automatic check/install preferences |
 
-Choose milliseconds, seconds, minutes, hours or hours/minutes for remaining-time displays in Work settings. Hours round up to one decimal: **90 minutes → 1.5 hours**, **30 minutes → 0.5 hours**. The menu bar shows the expected departure time. Preferences survive a restart.
+In General settings, choose milliseconds, seconds, minutes, hours or hours/minutes for the remaining-time display in Work settings. Hours round up to one decimal: **90 minutes → 1.5 hours**, **30 minutes → 0.5 hours**. The menu bar shows the expected departure time. Preferences survive a restart.
 
 ## How a day is calculated
 
