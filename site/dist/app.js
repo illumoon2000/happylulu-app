@@ -48,6 +48,9 @@ for (const option of document.querySelectorAll('input[name="day-mode"]')) {
     const leave = earlyFriday ? "15:47" : "17:47";
     for (const element of document.querySelectorAll("[data-countdown]")) element.textContent = remaining;
     for (const element of document.querySelectorAll("[data-leave]")) element.textContent = leave;
+    for (const element of document.querySelectorAll("[data-day-label]")) {
+      element.textContent = english ? (earlyFriday ? "Lulu" : "Regular") : (earlyFriday ? "룰루데이" : "일반근무");
+    }
     document.getElementById("demo-progress").style.width = earlyFriday ? "89%" : "69%";
     document.getElementById("demo-note").textContent = english
       ? (earlyFriday ? "Example at 15:00 · last Friday: leave 2 hours earlier, at 15:47" : "Example at 15:00 · arrive 08:47 → leave 17:47")

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Edit your arrival time · HappyLulu</title>
+  <meta name="description" content="Use the Mac four-digit HH:mm editor or Windows manual entry, with clear rules for valid times.">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="icon" type="image/png" href="/assets/happylulu.png">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="alternate" hreflang="ko" href="/features/arrival-time/">
+  <link rel="alternate" hreflang="en" href="/en/features/arrival-time/">
+</head>
+<body data-page="guide">
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div class="site-header-shell"><header class="site-header wrap" data-menu-open="false">
+    <a class="brand" href="/en/" aria-label="HappyLulu home"><img src="/assets/happylulu.png" width="40" height="40" alt=""><span>HappyLulu</span></a>
+    <a class="language-link" href="/features/arrival-time/" lang="ko" aria-label="한국어 페이지">한국어</a>
+    <button class="nav-toggle" type="button" aria-controls="site-nav" aria-expanded="false" aria-label="Open navigation" hidden><span class="menu-glyph" aria-hidden="true"><span></span><span></span><span></span></span><span>Menu</span></button>
+    <nav class="site-nav" id="site-nav" aria-label="Main navigation"><a href="/en/features/" aria-current="page">Features</a><a href="/en/guide/">How to use</a><a href="/en/releases/">Releases</a><a class="nav-download" href="/en/#download">Download</a></nav>
+  </header></div>
+  <main id="main" class="page-content" tabindex="-1">
+    <div class="section wrap detail-page">
+      <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="/en/">Home</a><span aria-hidden="true">/</span><a href="/en/features/">Features</a><span aria-hidden="true">/</span><span aria-current="page">Edit your arrival time</span></nav>
+      <div class="section-heading">
+        <p class="eyebrow">Edit your arrival time</p>
+        <h1>Correct a missed or mistaken arrival.</h1>
+        <p>Use the Mac four-digit HH:mm editor or Windows manual entry, with clear rules for valid times.</p>
+        <div class="detail-meta"><span class="detail-badge">Mac 1.5.15 build31 · Windows 1.5.13</span></div>
+      </div>
+      <div class="detail-layout">
+        <nav class="detail-toc" aria-label="On this page"><a href="#overview">Overview</a><a href="#how">How to use</a><a href="#example">Example</a><a href="#limits">Scope and limits</a><a href="#related">Related features</a></nav>
+        <div class="detail-body">
+          <section id="overview" aria-labelledby="overview-title"><h2 id="overview-title">Correct today’s arrival</h2><p>Enter an arrival manually if you started the app late or its first observation differs from your arrival. Manual entry does not apply the automatic 08:00 normalization.</p><p>Mac 1.5.15 edits four HH:mm digits inside the panel. Windows 1.5.13 uses the Manual entry action in Today and a separate manual-entry window.</p></section>
+          <section id="how" aria-labelledby="how-title"><h2 id="how-title">Enter a time on each platform</h2><ol><li>On Mac, open HappyLulu from the menu bar and click the arrival digits.</li><li>Type four digits or use the + above and − below each digit. Digits do not carry or wrap.</li><li>Press Enter, click elsewhere or close the panel to save. Escape cancels.</li><li>On Windows, left-click the tray icon, choose Manual entry, select today’s time and workday mode, then save.</li></ol><p>Mac also offers manual arrival in Settings → Work. Editing only the time preserves the current manual mode or automatic calendar recognition. With no arrival, the Mac editor proposes the current time; closing without changing digits still saves it if valid.</p></section>
+          <section id="example" aria-labelledby="example-title"><h2 id="example-title">Change 09:10 to 09:00</h2><p>At 09:20, a regular-day arrival of 09:10 can be corrected to 09:00. With eight work hours, one break hour and no reduction, expected departure changes from 18:10 to 18:00.</p><p>Entering 09:30 at 09:20 fails because it is in the future. Manually entering 06:30 does not normalize to 08:00; it fails the allowed-window check.</p></section>
+          <section id="limits" aria-labelledby="limits-title"><h2 id="limits-title">What can be saved</h2><p>Regular and afternoon-off arrivals allow 08:00–10:00; morning off allows 13:00–15:00, including the final minute. The time must be valid and today. Future times, stale-date edits, invalid HH:mm and times incompatible with the selected mode are rejected.</p><div class="detail-callout"><p>Invalid Mac input keeps the original record and displays an error. Saving a manual arrival can resume a day paused by Day off or leave, so check the mode and expected departure after saving.</p></div><p>Windows 1.5.13 does not include Mac’s per-digit +/− controls or panel autosave. This feature corrects today’s arrival; it does not fill historical records.</p></section>
+          <section id="related" aria-labelledby="related-title"><h2 id="related-title">Related features</h2><div class="detail-related"><a class="doc-card" href="/en/features/attendance/">Automatic arrival records ↗</a><a class="doc-card" href="/en/features/workday-modes/">Today’s work and leave ↗</a><a class="doc-card" href="/en/features/countdown/">Expected departure and countdown ↗</a><a class="doc-card" href="/en/releases/macos-1.5.15/">Mac 1.5.15 build31 release ↗</a></div><p><a class="text-link" href="/en/features/">Browse all features ↗</a></p></section>
+        </div>
+      </div>
+    </div>
+  </main>
+  <footer class="wrap"><div class="footer-main"><a class="brand" href="/en/"><img src="/assets/happylulu.png" width="32" height="32" alt=""><span>HappyLulu</span></a><p>Less to keep track of.<br>More room to focus.</p><nav class="footer-nav" aria-label="Project links"><a href="https://github.com/young221718/happylulu-app">GitHub ↗</a><a href="/en/releases/">Releases</a><a href="/en/guide/">Guides</a><a href="https://github.com/young221718/happylulu-app/blob/main/LICENSE">License ↗</a></nav></div><p class="project-credits" aria-label="Project credits"><span>Tokens by <strong>lululab</strong></span><span aria-hidden="true">·</span><span>Chat by <strong>Chan-Young Choi</strong></span></p><div class="footer-bottom"><p><a href="https://github.com/young221718/happylulu-app/blob/main/LICENSE">Noncommercial use · Full source disclosure required when reusing the code.</a></p><p>Not an official attendance system.</p></div></footer>
+  <script src="/app.js" defer></script>
+</body>
+</html>
