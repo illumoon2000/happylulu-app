@@ -93,7 +93,10 @@ final class AppModel: ObservableObject {
         return earlyLeaveMinutes > 0 ? .luluDay : .regular
     }
     var menuTitle: String {
-        if let departure { return L("퇴근 \(timeLabel(departure))", "Leave \(timeLabel(departure))") }
+        if let departure {
+            let title = L("퇴근 \(timeLabel(departure))", "Leave \(timeLabel(departure))")
+            return departure > now ? title + L(" · \(countdownText) 남음", " · \(countdownText) left") : title
+        }
         if todayDayType == .annualLeave { return L("연차/공가", "Leave day") }
         return isSkipped ? L("오늘 쉬는 날", "Day off today") : L("출근 대기", "Waiting for arrival")
     }
