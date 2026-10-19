@@ -40,6 +40,45 @@ if (header && menuToggle && navigation) {
   mobileMenu.addEventListener("change", () => setMenuOpen(false));
 }
 
+const narrowDocs = window.matchMedia("(max-width: 900px)");
+for (const sidebar of document.querySelectorAll("[data-section-nav]")) {
+  const toggle = sidebar.querySelector("[data-section-nav-toggle]");
+  const links = document.getElementById(toggle.getAttribute("aria-controls"));
+  let sectionFocus = null;
+  function setSectionOpen(open) {
+    sidebar.dataset.navOpen = String(open);
+    toggle.setAttribute("aria-expanded", String(open));
+  }
+  sidebar.dataset.navReady = "true";
+  toggle.hidden = false;
+  setSectionOpen(!narrowDocs.matches);
+  toggle.addEventListener("click", () => setSectionOpen(toggle.getAttribute("aria-expanded") !== "true"));
+  document.addEventListener("focusin", event => {
+    sectionFocus = sidebar.contains(event.target) ? event.target : null;
+  });
+  sidebar.addEventListener("keydown", event => {
+    if (event.key === "Escape" && narrowDocs.matches && toggle.getAttribute("aria-expanded") === "true") {
+      setSectionOpen(false);
+      toggle.focus();
+    }
+  });
+  document.addEventListener("click", event => {
+    if (!sidebar.contains(event.target)) {
+      sectionFocus = null;
+      if (narrowDocs.matches) setSectionOpen(false);
+    }
+  });
+  links.addEventListener("click", event => {
+    if (narrowDocs.matches && event.target.closest("a")) setSectionOpen(false);
+  });
+  narrowDocs.addEventListener("change", () => {
+    const previousFocus = sectionFocus;
+    setSectionOpen(!narrowDocs.matches);
+    if (narrowDocs.matches && links.contains(previousFocus)) toggle.focus();
+    if (!narrowDocs.matches && previousFocus === toggle) links.querySelector('[aria-current="page"]').focus();
+  });
+}
+
 // This is a fixed example, not the visitor's attendance or a live app session.
 for (const option of document.querySelectorAll('input[name="day-mode"]')) {
   option.addEventListener("change", () => {

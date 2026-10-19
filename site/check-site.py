@@ -19,9 +19,39 @@ class Page(HTMLParser):
         self.headings = 0
         self.alternates = {}
         self.refreshes = []
+        self.docs_shell = False
+        self.detail_body = False
+        self.section_links = {}
+        self.section_current = {}
+        self.section_toggles = set()
+        self.release_cards = {}
+        self._navigation = None
+        self._release = None
 
     def handle_starttag(self, tag, attrs):
         fields = dict(attrs)
+        if "docs-layout" in fields.get("class", "").split():
+            self.docs_shell = True
+        if "detail-body" in fields.get("class", "").split():
+            self.detail_body = True
+        if tag == "nav" and fields.get("id") in {"feature-navigation", "release-navigation"}:
+            self._navigation = fields["id"]
+            self.section_links[self._navigation] = []
+            self.section_current[self._navigation] = []
+        if tag == "button" and "data-section-nav-toggle" in fields:
+            self.section_toggles.add(fields.get("aria-controls"))
+        if tag == "a" and self._navigation:
+            self.section_links[self._navigation].append(fields.get("href"))
+            if fields.get("aria-current") == "page":
+                self.section_current[self._navigation].append(fields.get("href"))
+        if tag == "article" and "data-release-slug" in fields:
+            self._release = fields["data-release-slug"]
+            self.release_cards[self._release] = {"links": [], "changes": 0}
+        if self._release:
+            if tag == "a":
+                self.release_cards[self._release]["links"].append(fields.get("href"))
+            if tag == "li":
+                self.release_cards[self._release]["changes"] += 1
         if tag == "html":
             self.language = fields.get("lang")
         if tag == "h1":
@@ -34,6 +64,12 @@ class Page(HTMLParser):
             assert fields["id"] not in self.ids, "Duplicate anchor"
             self.ids.add(fields["id"])
         self.links.extend(fields[k] for k in ("href", "src") if k in fields)
+
+    def handle_endtag(self, tag):
+        if tag == "nav":
+            self._navigation = None
+        if tag == "article":
+            self._release = None
 
 
 class OnboardingSteps(HTMLParser):
@@ -80,6 +116,28 @@ releases = {"macos-1.5.15": "macos-v1.5.15-build31", "macos-1.5.14": "macos-v1.5
             "windows-1.5.13": "windows-v1.5.13"}
 for route in legacy_routes:
     assert (DIST / route).resolve() in pages, route
+for prefix in ("", "en/"):
+    for group, entries, navigation in (("features", features, "feature-navigation"),
+                                       ("releases", releases, "release-navigation")):
+        overview = f"/{prefix}{group}/"
+        expected = {overview, *(f"/{prefix}{group}/{slug}/" for slug in entries)}
+        overview_page = pages[(DIST / prefix / group / "index.html").resolve()]
+        for route in expected:
+            page = pages[(DIST / route.lstrip("/") / "index.html").resolve()]
+            assert page.docs_shell, f"List and details must share the sidebar layout: {route}"
+            assert navigation in page.section_toggles, f"Mobile selection must control its navigation: {route}"
+            assert set(page.section_links.get(navigation, [])) == expected, f"Incomplete section navigation: {route}"
+            assert page.section_links[navigation] == overview_page.section_links[navigation], f"Navigation order changed: {route}"
+            assert page.section_current[navigation] == [route], f"Selected section must be marked: {route}"
+    listing = pages[(DIST / prefix / "releases/index.html").resolve()]
+    assert set(listing.release_cards) == set(releases), "Release list must explain every version"
+    for slug, tag in releases.items():
+        card = listing.release_cards[slug]
+        version = slug.split("-", 1)[1]
+        asset = (f"HappyLulu-{version}-universal.dmg" if slug.startswith("macos-")
+                 else f"HappyLulu-{version}-windows-x64-runtime-required.zip")
+        assert card["changes"] >= 2, f"Show key changes without opening the release: {slug}"
+        assert REPO + f"/releases/download/{tag}/{asset}" in card["links"], f"Download directly from the release list: {slug}"
 calendar_paths = {"features/calendar/index.html": "how", "en/features/calendar/index.html": "how",
                   "guide/index.html": "plugins", "en/guide/index.html": "plugins",
                   "calendar/index.html": None}
@@ -130,6 +188,7 @@ for prefix, language in (("", "ko"), ("en/", "en")):
                 assert {"overview", "how", "example", "limits", "related"} <= page.ids, route
                 assert f"/{prefix}features/" in page.links, f"Missing overview link: {route}"
             else:
+                assert page.detail_body, f"Preserve readable release body and inline link styles: {route}"
                 assert {"highlights", "improvements", "scope", "downloads"} <= page.ids, route
                 assert REPO + "/releases/tag/" + releases[slug] in page.links, route
                 assert any(link.startswith(f"/{prefix}features/") for link in page.links), route
@@ -174,4 +233,4 @@ for path in DIST.rglob("*"):
     assert not path.is_symlink(), path
     assert path.suffix not in {".zip", ".dmg", ".exe", ".p12", ".key"}, path
 assert json.loads((ROOT / ".openai/hosting.json").read_text())["project_id"] == "appgprj_6abcb381750c819189cb642ebfa52b3e"
-print(f"PASS: {len(pages)} routes, bilingual usage guide, 12 bilingual feature guides, 3 bilingual release details, links/anchors and release assets; no app binaries.")
+print(f"PASS: {len(pages)} routes, shared section navigation/current pages, direct release downloads, bilingual guides, links/anchors and release assets; no app binaries.")
