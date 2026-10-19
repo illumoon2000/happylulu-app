@@ -4,9 +4,9 @@
 
 ## Mac 로컬 준비
 
-`Resources/Info.plist`의 버전·증가한 build, RELEASE-NOTES.md, LICENSE, THIRD_PARTY_NOTICES.md를 검토·커밋한 깨끗한 checkout에서 실행합니다. 현재 후보는 **Mac 1.5.15 build31(배포 준비·미게시)**입니다. 공개 Mac 1.5.14 build30 자산은 보존하며 Windows는 1.5.13을 유지합니다. 이번 준비에서는 사용자 앱을 교체하거나 서명·Release·feed 게시를 수행하지 않습니다.
+`Resources/Info.plist`의 버전·증가한 build, RELEASE-NOTES.md, LICENSE, THIRD_PARTY_NOTICES.md를 검토·커밋한 깨끗한 checkout에서 실행합니다. 이번 배포 대상은 **Mac 1.5.15 build31**입니다. 이전 Mac 1.5.14 build30 자산은 보존하며 Windows는 1.5.13을 유지합니다. 2026-10-19 사용자가 신규 릴리즈와 이 Mac의 정식 앱 업데이트를 승인했습니다. 기존 앱·프로필 백업 후 실제 교체·재실행·기록·연결·캘린더 권한 유지 증거를 확인하는 경로를 사용합니다.
 
-아래 서명·게시 명령은 승인된 후속 배포 단계용이며 소스 준비 PR에서 실행하지 않습니다.
+아래 명령은 소스 검토·CI 성공 후 승인된 배포 단계에서 실행합니다.
 
 ```sh
 bash scripts/prepare-release.sh
@@ -26,7 +26,7 @@ python3 scripts/check-update-feed-generation.py \
 
 `dist/releases/<version>-build<build>/`에 앱, ZIP, DMG, 노트, 라이선스, `updates/appcast.xml`, 서명된 노트, `build-source.json`, `release.json`, `SHA256SUMS.txt`를 보관합니다. 빌드 시작 때 기록한 소스 commit과 clean 상태가 현재 checkout과 일치해야 배포 준비를 통과합니다. manifest는 버전, build, feed, 공개키와 코드 서명 requirement도 연결합니다. 체크섬은 업로드할 모든 파일을 열거합니다. 경로 이탈·symlink·중복/누락 체크섬·변조·다른 URL/버전의 feed는 거부합니다. 서명 후 산출물을 수정하거나 같은 build를 재사용하지 않습니다. 기존 준비 폴더가 있으면 자동 덮어쓰지 않습니다.
 
-실제 설치 시험과 아래의 명시적 설치 없는 공개 중 어떤 경로를 사용할지는 별도 결정합니다. 경로가 결정되기 전에는 설치 완료를 기록하거나 공개하지 않습니다. 최종 버전·노트 변경이 반영된 검토 소스 commit의 CI를 확인한 뒤 패키징합니다.
+이번 배포는 아래 실제 설치 시험과 명시적 승격 경로를 사용합니다. 확인하지 않은 설치·권한 유지 결과를 증거에 채우지 않습니다. 최종 버전·노트 변경이 반영된 검토 소스 commit의 CI를 확인한 뒤 패키징합니다.
 
 ## 검증된 후보를 draft로 올리기
 
