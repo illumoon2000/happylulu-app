@@ -39,7 +39,7 @@ Mac puts settings in one window with a sidebar, including Calendar.
 | View | Controls |
 | --- | --- |
 | Menu bar panel | Arrival, expected departure, workday choices, inline time edits and today’s events |
-| General | Language, time format and login startup |
+| General | Language, time format, menu bar departure visibility and login startup |
 | Appearance | Five themes, custom colors, five icons and image import |
 | Work | Work and break hours, manual arrival and day off |
 | Attendance | Monthly arrival calendar, date details and record folder |
@@ -48,6 +48,8 @@ Mac puts settings in one window with a sidebar, including Calendar.
 | Updates | Version and automatic check/install preferences |
 
 In General settings, choose milliseconds, seconds, minutes, hours or hours/minutes for the remaining-time display in the menu bar and Work settings. Hours round up to one decimal: **90 minutes → 1.5 hours**, **30 minutes → 0.5 hours**. The menu bar shows the expected departure time alongside the countdown (for example, `Leave 18:00 · 1.5 hr left`). At or after departure, only the expected departure time remains. Preferences survive a restart.
+
+On Mac, **Show expected departure in menu bar** is on by default. Turn it off to hide the clock while keeping the countdown in your selected format (for example, `1.5 hr left`). Changes apply immediately and survive a restart. Once the expected departure time is reached with the option off, the menu bar shows `Ready to leave`. The today panel's departure time and attendance records stay unchanged.
 
 ## How a day is calculated
 

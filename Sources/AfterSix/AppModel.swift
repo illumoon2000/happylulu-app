@@ -13,6 +13,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var calendarHalfDayMode: WorkdayMode?
     @Published private(set) var calendarHalfDayMessage: String?
     @Published private(set) var countdownDisplay = CountdownDisplay.saved()
+    private static let departureVisibilityKey = "HappyLuluShowDepartureInMenuBar"
+    @Published private(set) var showDepartureInMenuBar = UserDefaults.standard.object(forKey: AppModel.departureVisibilityKey) as? Bool ?? true
     let store: StateStore
     let allowsLoginItemChanges: Bool
     private var writable = true
@@ -53,6 +55,10 @@ final class AppModel: ObservableObject {
         countdownDisplay = choice
         now = nowProvider()
         if timer != nil { startCountdownTimer() }
+    }
+    func setShowDepartureInMenuBar(_ show: Bool) {
+        UserDefaults.standard.set(show, forKey: Self.departureVisibilityKey)
+        showDepartureInMenuBar = show
     }
     private var countdownRefreshInterval: TimeInterval {
         (departure.map { $0 > now } ?? false) ? countdownDisplay.refreshInterval : 1
@@ -95,7 +101,11 @@ final class AppModel: ObservableObject {
     var menuTitle: String {
         if let departure {
             let title = L("퇴근 \(timeLabel(departure))", "Leave \(timeLabel(departure))")
-            return departure > now ? title + L(" · \(countdownText) 남음", " · \(countdownText) left") : title
+            if departure > now {
+                let remaining = L("\(countdownText) 남음", "\(countdownText) left")
+                return showDepartureInMenuBar ? title + " · " + remaining : remaining
+            }
+            return showDepartureInMenuBar ? title : L("퇴근 가능", "Ready to leave")
         }
         if todayDayType == .annualLeave { return L("연차/공가", "Leave day") }
         return isSkipped ? L("오늘 쉬는 날", "Day off today") : L("출근 대기", "Waiting for arrival")

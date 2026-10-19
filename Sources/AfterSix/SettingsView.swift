@@ -242,6 +242,11 @@ struct SettingsView: View {
                 .pickerStyle(.menu)
                 Text(L("시간은 0.1시간씩, 다른 단위는 선택한 단위로 올림합니다. 밀리초는 0.1초마다 갱신합니다.", "Hours round up in 0.1-hour steps; other units round up to the selected unit. Milliseconds refresh every 0.1 seconds."))
                     .font(.caption).foregroundStyle(.secondary)
+                Toggle(L("메뉴바에 퇴근 예정 시각 표시", "Show expected departure in menu bar"), isOn: Binding(
+                    get: { model.showDepartureInMenuBar }, set: { model.setShowDepartureInMenuBar($0) }))
+                    .toggleStyle(.switch)
+                Text(L("꺼도 남은 시간과 선택한 표시 단위는 유지됩니다.", "The countdown and selected time format remain when turned off."))
+                    .font(.caption).foregroundStyle(.secondary)
                 Toggle(L("로그인 시 자동 실행", "Launch at login"), isOn: Binding(
                     get: { model.loginEnabled }, set: { model.setLoginEnabled($0) }))
                     .toggleStyle(.switch).disabled(!model.allowsLoginItemChanges)
