@@ -76,6 +76,7 @@ jobs:
           if [[ "${HAPPY_LULU_DISABLE_DAOUOFFICE:-}" != "1" && -d Sources/DaouOfficePlugin && -d Sources/DaouOfficeIntegration ]]; then
             swift run --build-system native AppPluginChecks
             bash scripts/check-daouoffice-model.sh
+            bash scripts/check-edit-menu.sh
           else
             echo 'Daouoffice module is excluded; common app checks still run.'
           fi

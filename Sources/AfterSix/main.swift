@@ -73,6 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             DispatchQueue.main.async { [weak self] in
                 self?.updateTitle()
                 self?.settingsWindow?.title = L("HappyLulu 설정", "HappyLulu Settings")
+                NSApplication.shared.mainMenu = makeApplicationMenu()
             }
         }
         let firstLaunch = !model.state.didOfferLoginItem
@@ -269,5 +270,7 @@ if let identifier = Bundle.main.bundleIdentifier,
 }
 let delegate = AppDelegate()
 application.setActivationPolicy(.accessory)
+// Manual NSApplication startup does not install SwiftUI's standard editing commands.
+application.mainMenu = makeApplicationMenu()
 application.delegate = delegate
 application.run()
