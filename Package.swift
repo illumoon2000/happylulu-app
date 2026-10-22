@@ -25,6 +25,9 @@ let package = Package(
         .target(name: "CalendarSyncServices", dependencies: ["CalendarSyncCore"]),
         .target(name: "AppPluginCore"),
         .target(name: "AppPluginHost", dependencies: ["AppPluginCore"]),
+        // Preparation only: this module is not registered or linked into HappyLulu.
+        .target(name: "DaouOfficeWritePlugin"),
+        .executableTarget(name: "DaouOfficeWriteChecks", dependencies: ["DaouOfficeWritePlugin"], path: "Tests/DaouOfficeWriteChecks"),
         .executableTarget(name: "AfterSix", dependencies: ["AfterSixCore", "MacLaunchSupport", "CalendarSyncCore", "CalendarSyncServices", "AppPluginCore", "AppPluginHost",
             .product(name: "Sparkle", package: "Sparkle")] + optionalDependencies,
             swiftSettings: hasDaouoffice ? [.define("HAPPY_LULU_DAOUOFFICE_ENABLED")] : [],
