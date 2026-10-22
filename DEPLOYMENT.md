@@ -4,13 +4,13 @@
 
 ## Mac 로컬 준비
 
-`Resources/Info.plist`의 버전·증가한 build, RELEASE-NOTES.md, LICENSE, THIRD_PARTY_NOTICES.md를 검토·커밋한 깨끗한 checkout에서 실행합니다. 이번 배포 대상은 **Mac 1.5.18 build34**입니다. 이전 Mac 1.5.17 build33·1.5.16 build32·1.5.15 build31 자산은 보존하며 Windows는 1.5.13을 유지합니다. 이번 1.5.18 배포는 사용자 설치 앱 교체를 제외하고 공개합니다. 아래의 「사용자 설치 시험 없이 명시적으로 승인된 공개」 경로를 사용하며, 실제 설치·재실행·권한 보존은 미검증으로 남깁니다.
+`Resources/Info.plist`의 버전·증가한 build, RELEASE-NOTES.md, LICENSE, THIRD_PARTY_NOTICES.md를 검토·커밋한 깨끗한 checkout에서 실행합니다. 이번 배포 대상은 **Mac 1.5.19 build35**입니다. 이전 Mac 1.5.18 build34·1.5.17 build33·1.5.16 build32·1.5.15 build31 자산은 보존하며 Windows는 1.5.13을 유지합니다. 이번 1.5.19 배포는 승인된 로컬 설치 절차로 최종 후보를 교체·재실행하고 기록·캘린더 연결·권한 보존을 확인한 뒤 `promote` 경로로 공개합니다. 확인 결과는 후보 ZIP 해시와 연결된 비공개 증거에 기록합니다.
 
 아래 명령은 소스 검토·CI 성공 후 승인된 배포 단계에서 실행합니다.
 
 ```sh
 bash scripts/prepare-release.sh
-python3 scripts/release_delivery.py check dist/releases/1.5.18-build34
+python3 scripts/release_delivery.py check dist/releases/1.5.19-build35
 ```
 
 준비 단계는 고정 코드 서명 검사, arm64/x86_64 Universal 빌드, ZIP·DMG 생성, 로컬 Sparkle feed 서명, 번들·ZIP·DMG 일치 검사와 Ed25519 서명 검사를 수행합니다. 키체인 승인창은 운영자가 직접 승인합니다. ad-hoc 서명은 배포 준비 검사에서 거부합니다. Developer ID·공증과 외부 Mac 설치 시험은 별도입니다.
@@ -19,25 +19,25 @@ python3 scripts/release_delivery.py check dist/releases/1.5.18-build34
 
 ```sh
 python3 scripts/check-update-feed-generation.py \
-  dist/releases/1.5.18-build34/HappyLulu-1.5.18-universal.zip
+  dist/releases/1.5.19-build35/HappyLulu-1.5.19-universal.zip
 ```
 
 `generate_appcast --disable-signing-warning`은 노트에 붙이는 안내 주석만 억제합니다. archive·노트·feed 서명은 유지하며, 서명 후 노트를 원문으로 되돌리지 않습니다.
 
 `dist/releases/<version>-build<build>/`에 앱, ZIP, DMG, 노트, 라이선스, `updates/appcast.xml`, 서명된 노트, `build-source.json`, `release.json`, `SHA256SUMS.txt`를 보관합니다. 빌드 시작 때 기록한 소스 commit과 clean 상태가 현재 checkout과 일치해야 배포 준비를 통과합니다. manifest는 버전, build, feed, 공개키와 코드 서명 requirement도 연결합니다. 체크섬은 업로드할 모든 파일을 열거합니다. 경로 이탈·symlink·중복/누락 체크섬·변조·다른 URL/버전의 feed는 거부합니다. 서명 후 산출물을 수정하거나 같은 build를 재사용하지 않습니다. 기존 준비 폴더가 있으면 자동 덮어쓰지 않습니다.
 
-실제 설치 시험을 포함한 배포에만 아래 `promote` 경로를 사용합니다. 이번 배포는 사용자 설치 없는 별도 공개 경로를 따릅니다. 확인하지 않은 설치·권한 유지 결과를 증거에 채우지 않습니다. 최종 버전·노트 변경이 반영된 검토 소스 commit의 CI를 확인한 뒤 패키징합니다.
+실제 설치 시험을 포함한 배포에만 아래 `promote` 경로를 사용합니다. 이번 배포는 아래의 실제 업데이트 시험과 명시적 승격 경로를 따릅니다. 확인하지 않은 설치·권한 유지 결과를 증거에 채우지 않습니다. 최종 버전·노트 변경이 반영된 검토 소스 commit의 CI를 확인한 뒤 패키징합니다.
 
 ## 검증된 후보를 draft로 올리기
 
 소스 commit이 GitHub에 존재하고 실제 원격 쓰기가 승인된 뒤 실행합니다. `--dry-run`은 로컬 검사와 명령 미리보기만 수행합니다.
 
 ```sh
-python3 scripts/release_delivery.py draft dist/releases/1.5.18-build34 --dry-run
-python3 scripts/release_delivery.py draft dist/releases/1.5.18-build34
+python3 scripts/release_delivery.py draft dist/releases/1.5.19-build35 --dry-run
+python3 scripts/release_delivery.py draft dist/releases/1.5.19-build35
 ```
 
-`macos-v1.5.18-build34` draft를 명시적인 소스 SHA에서 만들고 ZIP·DMG·노트·라이선스·체크섬·manifest·서명 appcast를 올립니다. 이미 있는 lightweight/annotated 태그는 실제 commit까지 따라가 확인하며 다른 commit이면 draft 생성과 승격 전에 중단합니다. 업로드 후 다시 내려받아 모든 바이트를 로컬 후보와 대조합니다. 기존 태그의 Release는 덮어쓰지 않습니다. 실패한 draft는 원인을 확인한 후 운영자가 처리하며 자동 삭제하지 않습니다.
+`macos-v1.5.19-build35` draft를 명시적인 소스 SHA에서 만들고 ZIP·DMG·노트·라이선스·체크섬·manifest·서명 appcast를 올립니다. 이미 있는 lightweight/annotated 태그는 실제 commit까지 따라가 확인하며 다른 commit이면 draft 생성과 승격 전에 중단합니다. 업로드 후 다시 내려받아 모든 바이트를 로컬 후보와 대조합니다. 기존 태그의 Release는 덮어쓰지 않습니다. 실패한 draft는 원인을 확인한 후 운영자가 처리하며 자동 삭제하지 않습니다.
 
 ## 실제 업데이트 시험과 명시적 승격
 
@@ -63,11 +63,11 @@ draft 준비만으로 승격하지 않습니다. 승인된 실제 HappyLulu 업�
 ```
 
 ```sh
-python3 scripts/release_delivery.py promote dist/releases/1.5.18-build34 \
+python3 scripts/release_delivery.py promote dist/releases/1.5.19-build35 \
   --permission-evidence /absolute/local/permission-evidence.json --dry-run
-python3 scripts/release_delivery.py promote dist/releases/1.5.18-build34 \
+python3 scripts/release_delivery.py promote dist/releases/1.5.19-build35 \
   --permission-evidence /absolute/local/permission-evidence.json
-python3 scripts/release_delivery.py readback dist/releases/1.5.18-build34
+python3 scripts/release_delivery.py readback dist/releases/1.5.19-build35
 ```
 
 승격은 후보와 증거를 대조하고 draft 자산을 재다운로드 검증한 뒤 버전 Release를 공개합니다. 이어 고정 `macos-update-feed` prerelease의 appcast를 서명 바이트 그대로 게시하고 Latest 표시를 끕니다. 이전 feed는 서명을 확인하고 로컬 `receipts/`에 보존하며 build 역행·같은 build의 다른 feed는 거부합니다. GitHub의 immutable Releases 정책이 켜져 있으면 고정 feed를 갱신할 수 없으므로 사전에 이 운영 방식과 정책을 조정해야 합니다.
