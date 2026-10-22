@@ -6,11 +6,12 @@ public enum AppearanceColorRole: String, Codable, CaseIterable, Sendable {
 }
 
 public enum AppearancePalette: String, Codable, CaseIterable, Sendable {
-    case softMint, warmStone, blueGray, dustyLavender, charcoal
+    case softMint, warmStone, blueGray, dustyLavender, charcoal, offwhiteLilac
 
     public var colors: [AppearanceColorRole: String] {
         let values: [String]
         switch self {
+        case .offwhiteLilac: values = ["#FAF9FC", "#EEE8F8", "#FFFFFF", "#7054B3", "#2F2B3D"]
         case .softMint: values = ["#E9EFEB", "#E0E7E2", "#F2F5F3", "#286F5D", "#26382E"]
         case .warmStone: values = ["#EEEAE3", "#E4DED5", "#F6F2ED", "#786347", "#38342E"]
         case .blueGray: values = ["#E7EDF1", "#DDE5EB", "#F0F4F7", "#426780", "#2B3741"]
@@ -39,7 +40,7 @@ public enum AppearanceError: LocalizedError {
 
 public struct AppearancePreferences: Codable, Equatable, Sendable {
     public var version = 1
-    public var palette: AppearancePalette = .softMint
+    public var palette: AppearancePalette = .offwhiteLilac
     public var customColors: [String: String] = [:]
     public var icon: AppearanceIcon = .original
     public var customImageFilename: String?

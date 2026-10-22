@@ -17,6 +17,7 @@ struct PanelView: View {
     @PanelState private var focusedDigit: Int?
     @PanelState private var saveGeneration = 0
     @PanelState private var selectingType = false
+    @FocusState private var settingsFocused: Bool
     let onOpenHistory: () -> Void
     let onOpenSettings: () -> Void
     let onOpenCalendar: () -> Void
@@ -36,24 +37,32 @@ struct PanelView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 9) {
-                Image(nsImage: appearance.iconImage)
+                Image(nsImage: LuluBrand.headerIcon(for: model.luluDisplayState, vacationEve: model.isVacationEve))
                     .resizable().interpolation(.high).frame(width: 28, height: 28)
-                    .accessibilityLabel("HappyLulu")
-                Text("HappyLulu").font(.system(size: 16, weight: .semibold))
+                    .accessibilityLabel("happylulu, \(model.luluStateLabel)")
+                Text("happylulu").font(.system(size: 16, weight: .semibold))
                 Spacer()
-                Button(action: onOpenSettings) { Image(systemName: "gearshape").font(.system(size: 16)) }
-                    .buttonStyle(.plain).frame(width: 28, height: 28)
-                    .accessibilityLabel(L("설정", "Settings"))
+                settingsButton
             }
-            VStack(alignment: .leading, spacing: 8) {
-                TodayDayTypeView(model: model, onSelect: { type in
-                    saveGeneration += 1
-                    selectingType = true
-                    defer { DispatchQueue.main.async { selectingType = false } }
-                    return saveClock(dayType: type)
-                })
+            VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 2) {
+                    TodayDayTypeView(model: model, onSelect: { type in
+                        saveGeneration += 1
+                        selectingType = true
+                        defer { DispatchQueue.main.async { selectingType = false } }
+                        return saveClock(dayType: type)
+                    })
+                    switch model.luluDisplayState {
+                    case .waiting, .readyToLeave, .dayOff:
+                        Text(model.luluStateLabel).font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(.secondary).lineLimit(1)
+                            .help(model.luluStateLabel)
+                    default:
+                        EmptyView()
+                    }
+                }.frame(height: 42, alignment: .top)
                 HStack(alignment: .top, spacing: 16) {
-                    VStack(alignment: .leading, spacing: 5) {
+                    VStack(alignment: .leading, spacing: 3) {
                         Text(L("출근", "Arrival")).font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
                         if editing {
                             clockEditor
@@ -78,7 +87,7 @@ struct PanelView: View {
                         .help(visibleMessage(error))
                 }
             }
-            .padding(12).frame(maxWidth: .infinity, minHeight: 156, maxHeight: 156, alignment: .topLeading)
+            .padding(10).frame(maxWidth: .infinity, minHeight: 156, maxHeight: 156, alignment: .topLeading)
             .background(appearance.surface, in: RoundedRectangle(cornerRadius: 12))
             Divider()
             ForEach(plugins.menuBarItems) { item in
@@ -106,6 +115,21 @@ struct PanelView: View {
             }
         }
         .onDisappear { if editing { _ = saveClock() } }
+    }
+
+    @ViewBuilder private var settingsButton: some View {
+        let button = Button(action: onOpenSettings) {
+            Image(systemName: "gearshape").font(.system(size: 16))
+        }
+        .buttonStyle(PanelSettingsButtonStyle(accent: accent, isFocused: settingsFocused))
+        .focused($settingsFocused)
+        .accessibilityLabel(L("설정", "Settings"))
+        if #available(macOS 14, *) {
+            // Replace the system focus fill while retaining keyboard focus and activation.
+            button.focusEffectDisabled()
+        } else {
+            button
+        }
     }
 
     private func scheduleSave() { scheduleSave(onlyIfUnfocused: false) }
@@ -193,6 +217,21 @@ struct PanelView: View {
                 .monospacedDigit().lineLimit(1).minimumScaleFactor(0.8).foregroundStyle(accent)
                 .padding(.top, timeTopInset)
         }.frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+struct PanelSettingsButtonStyle: ButtonStyle {
+    let accent: Color
+    let isFocused: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .frame(width: 28, height: 28)
+            .contentShape(Rectangle())
+            .background(configuration.isPressed ? accent.opacity(0.12) : .clear,
+                        in: RoundedRectangle(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6)
+                .strokeBorder(isFocused ? accent : .clear, lineWidth: 2))
     }
 }
 

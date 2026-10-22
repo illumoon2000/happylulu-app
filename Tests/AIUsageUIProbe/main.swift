@@ -38,6 +38,11 @@ struct AIUsageUIProbe {
         precondition(Bundle.main.bundleIdentifier!.hasPrefix("local.happylulu.usage-probe."))
         let application = NSApplication.shared
         application.setActivationPolicy(.accessory)
+        application.mainMenu = makeApplicationMenu()
+        precondition(Bundle.main.url(forResource: "HappyLuluBrand", withExtension: "png") != nil)
+        for state in LuluDisplayState.allCases {
+            precondition(Bundle.main.url(forResource: state.rawValue, withExtension: "png", subdirectory: "OwlStates") != nil)
+        }
         defer { UserDefaults.standard.removePersistentDomain(forName: Bundle.main.bundleIdentifier!) }
         AppLanguage.shared.select(.korean)
         let store = StateStore(url: output.appendingPathComponent("attendance.json"))
@@ -62,12 +67,16 @@ struct AIUsageUIProbe {
             let scheme: ColorScheme = theme == .softMint ? .light : .dark
             navigation.selection = .general
             plugins.setShowUsage(false)
-            try await render(settings, size: NSSize(width: 920, height: 760), name: "general-off-" + suffix,
+            try await render(settings, size: NSSize(width: 920, height: 720), name: "general-off-" + suffix,
+                directory: output, scheme: scheme)
+            try await render(settings, size: NSSize(width: 820, height: 620), name: "general-off-minimum-" + suffix,
                 directory: output, scheme: scheme)
             plugins.setShowUsage(true)
             let deadline = Date().addingTimeInterval(3)
             while PreviewUsageModule.model.snapshot == nil && Date() < deadline { try await Task.sleep(for: .milliseconds(10)) }
             precondition(plugins.menuBarItems.first?.title == "Codex 72%")
+            try await render(settings, size: NSSize(width: 820, height: 620), name: "general-on-minimum-" + suffix,
+                directory: output, scheme: scheme)
             navigation.pluginID = AIUsageModule.id; navigation.selection = .plugin
             try await render(settings, size: NSSize(width: 820, height: 700), name: "usage-settings-" + suffix,
                 directory: output, scheme: scheme)
@@ -78,7 +87,7 @@ struct AIUsageUIProbe {
         precondition(plugins.menuBarItems.isEmpty && !PreviewUsageModule.model.isRunning)
         let after = try Data(contentsOf: store.url)
         precondition(before == after && !sync.runtimeAllowed)
-        print("PASS usage UI: actual settings/panel, isolated synthetic 72% fixture, light/dark, display-off, stop and unchanged attendance")
+        print("PASS usage UI: actual settings/panel, isolated synthetic 72% fixture, light/dark, minimum settings size, bundled brand assets, display-off, stop and unchanged attendance")
     }
     @MainActor private static func render<V: View>(_ view: V, size: NSSize, name: String,
         directory: URL, scheme: ColorScheme) async throws {

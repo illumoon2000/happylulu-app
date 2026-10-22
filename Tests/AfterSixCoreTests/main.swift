@@ -26,6 +26,7 @@ func expectThrows<T>(_ value: @autoclosure () throws -> T, file: StaticString = 
     failure("Expected an error", file: file, line: line)
 }
 
+checkLuluDisplayState()
 try checkAppearancePreferences()
 try checkEarlyArrival()
 try checkAttendanceAdapter()

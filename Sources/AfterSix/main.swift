@@ -35,6 +35,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var languageObservation: AnyCancellable?
     private var pluginObservation: AnyCancellable?
 
+    private var displayedLuluState: LuluDisplayState?
+    private var displayedVacationEve = false
     private var loginObservedAt: Date?
 
     func applicationWillFinishLaunching(_ notification: Notification) {
@@ -79,7 +81,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         languageObservation = AppLanguage.shared.$choice.sink { [weak self] _ in
             DispatchQueue.main.async { [weak self] in
                 self?.updateTitle()
-                self?.settingsWindow?.title = L("HappyLulu 설정", "HappyLulu Settings")
+                self?.settingsWindow?.title = L("happylulu 설정", "happylulu Settings")
+                NSApplication.shared.mainMenu = makeApplicationMenu()
             }
         }
         let firstLaunch = !model.state.didOfferLoginItem
@@ -115,21 +118,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func updateTitle() {
+        if displayedLuluState != model.luluDisplayState || displayedVacationEve != model.isVacationEve {
+            statusItem.button?.image = LuluBrand.menuBarIcon(for: model.luluDisplayState, vacationEve: model.isVacationEve)
+            displayedLuluState = model.luluDisplayState
+            displayedVacationEve = model.isVacationEve
+        }
         let items = plugins.menuBarItems
         let menuTitle = ([model.menuTitle] + items.map(\.title)).joined(separator: " · ")
         statusItem.button?.title = " " + menuTitle
         popover.contentSize = NSSize(width: 364, height: 350 + 40 * items.count)
         var toolTip = model.departure.map { L("출근 \(model.timeLabel(model.arrival!.time)) · 퇴근 예정 \(model.timeLabel($0))", "Arrived \(model.timeLabel(model.arrival!.time)) · expected departure \(model.timeLabel($0))") }
-            ?? L("HappyLulu · 일반 06:00~10:00(08시 이전은 08시 기록), 오전 반차 13:00~15:00 로그인·잠금 해제를 기다립니다", "HappyLulu · waiting for login/unlock: regular 06:00–10:00 (before 08:00 recorded at 08:00), morning off 13:00–15:00")
+            ?? (model.luluDisplayState == .waiting
+                ? L("happylulu · 일반 06:00~10:00(08시 이전은 08시 기록), 오전 반차 13:00~15:00 로그인·잠금 해제를 기다립니다", "happylulu · waiting for login/unlock: regular 06:00–10:00 (before 08:00 recorded at 08:00), morning off 13:00–15:00")
+                : model.luluStateLabel)
         if let extra = model.postDepartureStatus {
             toolTip += " · " + model.mealStatusLabel(extra)
             toolTip += " · " + L("예정 시각 기준, 실제 근무·지급 미확인",
                                    "Scheduled time only; work and payment unverified")
         }
         if !items.isEmpty { toolTip += " · " + items.map(\.accessibilityLabel).joined(separator: " · ") }
-        statusItem.button?.toolTip = toolTip
+        statusItem.button?.toolTip = model.luluStateLabel + " · " + toolTip
         let accessibleTitle = ([model.menuTitle] + items.map(\.accessibilityLabel)).joined(separator: " · ")
-        statusItem.button?.setAccessibilityLabel("HappyLulu, \(accessibleTitle)")
+        statusItem.button?.setAccessibilityLabel("happylulu, \(model.luluStateLabel), \(accessibleTitle)")
     }
 
     @objc func togglePanel() {
@@ -149,7 +159,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 920, height: 720),
                                   styleMask: [.titled, .closable, .miniaturizable, .resizable],
                                   backing: .buffered, defer: false)
-            window.title = L("HappyLulu 설정", "HappyLulu Settings")
+            window.title = L("happylulu 설정", "happylulu Settings")
             window.delegate = self
             window.isReleasedWhenClosed = false
             window.contentViewController = NSHostingController(rootView: SettingsView(
@@ -281,5 +291,7 @@ if let identifier = Bundle.main.bundleIdentifier,
 }
 let delegate = AppDelegate()
 application.setActivationPolicy(.accessory)
+// Manual NSApplication startup does not install SwiftUI's standard editing commands.
+application.mainMenu = makeApplicationMenu()
 application.delegate = delegate
 application.run()

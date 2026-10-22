@@ -360,7 +360,7 @@ final class PluginManagerModel: ObservableObject {
         catch { message = "기능 연결을 저장하지 못했습니다. 이번 실행에서는 기본 연결로 돌아갑니다." }
     }
     func adapterName(_ id: String) -> String {
-        id == router.defaultID ? L("HappyLulu 기본", "HappyLulu default")
+        id == router.defaultID ? L("happylulu 기본", "happylulu default")
             : registrations.first { $0.id == id }?.controller.descriptor.name ?? id
     }
 }

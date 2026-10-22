@@ -34,7 +34,8 @@ struct AppearanceSettingsView: View {
                                         }
                                     }.frame(height: 27).clipShape(RoundedRectangle(cornerRadius: 5))
                                     HStack(spacing: 3) {
-                                        Text(palette.title).font(.caption)
+                                        Text(palette.title).font(.caption).lineLimit(2)
+                                            .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
                                         if appearance.preferences.palette == palette {
                                             Image(systemName: "checkmark.circle.fill")
                                         }
@@ -131,6 +132,7 @@ private struct AppearanceColorEditor: View {
 private extension AppearancePalette {
     var title: String {
         switch self {
+        case .offwhiteLilac: L("오프화이트 라일락", "Off-white lilac")
         case .softMint: L("소프트 민트", "Soft mint")
         case .warmStone: L("웜 스톤", "Warm stone")
         case .blueGray: L("블루 그레이", "Blue gray")
