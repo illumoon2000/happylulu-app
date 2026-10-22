@@ -516,7 +516,7 @@ body[data-page="releases"] .docs-content>section>h2{font-size:1.3rem;margin-bott
 .site-header-shell{background:#FFFFFFed}
 .site-header{min-height:80px}
 .site-nav .nav-download,.primary{background:#145B49;color:#fff}
-.primary:hover,.site-nav .nav-download:hover{background:#104C3E}
+.primary:hover,.site-nav .nav-download:hover{background:#104C3E;color:#fff}
 .secondary{color:#145B49;background:#fff}
 .button{border-radius:.85rem}
 .hero{grid-template-columns:minmax(0,.95fr) minmax(0,1.15fr);gap:2.5rem;padding-block:4.5rem 4rem}
