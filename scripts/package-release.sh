@@ -43,6 +43,8 @@ for architecture in arm64 x86_64; do
   case "$architectures" in *" $architecture "*) ;; *) printf 'Missing architecture: %s\n' "$architecture" >&2; exit 1;; esac
 done
 cp Resources/Info.plist "$app_dir/Contents/Info.plist"
+cp Resources/HappyLuluBrand.png "$app_dir/Contents/Resources/"
+cp -R Resources/OwlStates "$app_dir/Contents/Resources/"
 cp LICENSE THIRD_PARTY_NOTICES.md "$app_dir/Contents/Resources/"
 for language in ko en; do
     mkdir -p "$app_dir/Contents/Resources/$language.lproj"

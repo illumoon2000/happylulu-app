@@ -31,7 +31,7 @@ swiftc -parse-as-library -swift-version 6 -I "$build_dir/Modules" \
   Sources/AfterSix/DefaultFeatureAdapter.swift Sources/AfterSix/PluginManagerModel.swift \
   Sources/AfterSix/BundledPlugins.swift Sources/AfterSix/PluginSettingsView.swift \
   Sources/AfterSix/FeatureCalendarModel.swift Sources/AfterSix/TodayAgendaView.swift \
-  Sources/AfterSix/TodayDayTypeView.swift Sources/AfterSix/ArrivalClockDigitField.swift \
+  Sources/AfterSix/TodayDayTypeView.swift Sources/AfterSix/ArrivalClockDigitField.swift Sources/AfterSix/LuluBrand.swift \
   "$probe_dir/PanelView.swift" "$probe_dir/AppearanceModel.swift" Tests/PanelFocusProbe/main.swift \
   "$build_dir"/AppPluginCore.build/*.swift.o "$build_dir"/AppPluginHost.build/*.swift.o \
   "$build_dir"/AfterSixCore.build/*.swift.o "$build_dir"/CalendarSyncServices.build/*.swift.o \

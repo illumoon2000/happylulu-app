@@ -70,6 +70,8 @@ jobs:
           bash scripts/check-appearance-model.sh
           bash scripts/check-settings-navigation.sh
           bash scripts/check-plugin-architecture.sh
+          bash scripts/check-vacation-eve.sh
+          bash scripts/check-vacation-appearance.sh
           bash scripts/check-plugin-isolation.sh
       - name: Check optional Daouoffice integration
         run: |

@@ -31,6 +31,7 @@ try checkEarlyArrival()
 try checkAttendanceAdapter()
 try checkManualDayTypes()
 checkArrivalClockEdit()
+checkLuluDisplayState()
 
 let tests = AttendanceTests()
 let checks: [(String, () throws -> Void)] = [

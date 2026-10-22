@@ -34,9 +34,9 @@ struct PanelView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 9) {
-                Image(nsImage: appearance.iconImage)
+                Image(nsImage: LuluBrand.headerIcon(for: model.luluDisplayState, vacationEve: model.isVacationEve))
                     .resizable().interpolation(.high).frame(width: 28, height: 28)
-                    .accessibilityLabel("HappyLulu")
+                    .accessibilityLabel("HappyLulu, \(model.luluStateLabel)")
                 Text("HappyLulu").font(.system(size: 16, weight: .semibold))
                 Spacer()
                 Button(action: onOpenSettings) { Image(systemName: "gearshape").font(.system(size: 16)) }
