@@ -17,7 +17,7 @@ MAC_BUILD = metadata["CFBundleVersion"]
 MAC_SLUG = f"macos-{MAC_VERSION}"
 MAC_TAG = f"macos-v{MAC_VERSION}-build{MAC_BUILD}"
 # Release metadata and the approved site assets share one cache version.
-ASSET_TAG = f"{MAC_TAG}-site-release-20261022"
+ASSET_TAG = f"{MAC_TAG}-site-release-20261022-hover"
 
 # Brand copy is lowercase; literal filenames, URLs and storage paths keep their case.
 BRAND_WORD = re.compile(r"(?<![A-Za-z0-9_./\\-])(?:happylulu|lulu)(?![A-Za-z0-9_]|[./\\-][A-Za-z0-9])", re.I)
