@@ -77,5 +77,38 @@ public struct PluginHostContext {
 @MainActor
 public protocol PluginModule {
     static var id: String { get }
+    static var catalogMetadata: PluginModuleMetadata? { get }
     static func register(in context: PluginHostContext) throws
+}
+
+/// Optional modules describe themselves without importing provider code into the app.
+public struct PluginModuleMetadata: Sendable {
+    public let name: String
+    public let englishName: String
+    public let author: String
+    public let summary: String
+    public let englishSummary: String
+    public let symbol: String
+    public let providesUsage: Bool
+    public init(name: String, englishName: String? = nil, author: String, summary: String, englishSummary: String,
+                symbol: String, providesUsage: Bool = false) {
+        self.name = name; self.englishName = englishName ?? name; self.author = author; self.summary = summary
+        self.englishSummary = englishSummary; self.symbol = symbol; self.providesUsage = providesUsage
+    }
+}
+public extension PluginModule { static var catalogMetadata: PluginModuleMetadata? { nil } }
+
+public struct PluginMenuBarItem: Sendable, Equatable, Identifiable {
+    public let id: String
+    public let title: String
+    public let accessibilityLabel: String
+    public init(id: String, title: String, accessibilityLabel: String) {
+        self.id = id; self.title = title; self.accessibilityLabel = accessibilityLabel
+    }
+}
+
+/// Optional status output. The app renders it without understanding the provider API.
+@MainActor
+public protocol PluginMenuBarProviding: PluginController {
+    var menuBarItem: PluginMenuBarItem? { get }
 }

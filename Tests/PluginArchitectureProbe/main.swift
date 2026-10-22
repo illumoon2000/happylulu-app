@@ -797,6 +797,78 @@ private func checkLeaveGateInvalidation(root: URL) async throws {
     print("PASS leave recognition lifecycle: stale title/permission replies, manual selection, enabled intent before connection and permission retry")
 }
 
+@MainActor
+private final class UsageProbeController: ObservableObject, PluginMenuBarProviding {
+    let descriptor = PluginDescriptor(id: "usage-fixture", name: "Usage fixture")
+    @Published var enabled = false
+    private var active = false
+    var starts = 0
+    var stops = 0
+    var changes: AnyPublisher<Void, Never> { objectWillChange.map { _ in () }.eraseToAnyPublisher() }
+    var isRunning: Bool { false }
+    var connectionState: PluginConnectionState { enabled ? .ready : .off }
+    var menuBarItem: PluginMenuBarItem? {
+        active && enabled ? PluginMenuBarItem(id: descriptor.id, title: "Fixture 72%", accessibilityLabel: "Fixture remaining 72%") : nil
+    }
+    func start() { guard !active else { return }; active = true; starts += 1 }
+    func stop() { active = false; stops += 1 }
+    func refreshData() {}
+}
+
+@MainActor
+private enum UsageFixtureModule: PluginModule {
+    static let id = "usage-fixture"
+    static var last: UsageProbeController?
+    static var catalogMetadata: PluginModuleMetadata? {
+        PluginModuleMetadata(name: "Usage fixture", author: "Fixture", summary: "Fixture", englishSummary: "Fixture",
+            symbol: "gauge", providesUsage: true)
+    }
+    static func register(in context: PluginHostContext) throws {
+        let controller = UsageProbeController(); last = controller
+        let adapter = SnapshotFeatureAdapter(descriptor: FeatureAdapterDescriptor(id: id, name: id, features: []),
+            api: context.registry, timeZone: .current)
+        try context.register(PluginRegistration(controller: controller, adapter: adapter, symbol: "gauge", summary: "Fixture",
+            setEnabled: { controller.enabled = $0 }))
+    }
+}
+
+@MainActor
+private func checkUsageOption(root: URL) throws {
+    let sync = CalendarSyncModel(runtimeAllowed: false, storeURL: root.appendingPathComponent("usage-sync.sqlite"))
+    let catalog = PluginCatalogStore(url: root.appendingPathComponent("usage-catalog.json"))
+    let routes = FeatureRoutingStore(url: root.appendingPathComponent("usage-routes.json"))
+    let manager = PluginManagerModel(defaultAdapter: DefaultFeatureAdapter(), routingStore: routes, catalogStore: catalog)
+    manager.configureCatalog(sync: sync, presentations: PluginSettingsPresentationRegistry(), modules: [UsageFixtureModule.self])
+    manager.start()
+    require(!manager.showUsage && manager.menuBarItems.isEmpty && !manager.isInstalled(UsageFixtureModule.id), "Usage must be opt-in")
+    manager.setShowUsage(true)
+    require(manager.showUsage && manager.isInstalled(UsageFixtureModule.id), "Show usage must install and enable the plugin")
+    require(UsageFixtureModule.last?.starts == 1 && manager.menuBarItems.first?.title == "Fixture 72%", "Usage toggle must start and publish its status")
+    let selections = manager.router.selection
+    manager.stop()
+    let restarted = PluginManagerModel(defaultAdapter: DefaultFeatureAdapter(), routingStore: routes, catalogStore: catalog)
+    restarted.configureCatalog(sync: sync, presentations: PluginSettingsPresentationRegistry(), modules: [UsageFixtureModule.self])
+    require(restarted.showUsage, "Usage choice must survive restart")
+    restarted.start()
+    require(restarted.menuBarItems.count == 1, "Restart must restore the enabled plugin")
+    restarted.setShowUsage(false)
+    require(!restarted.showUsage && restarted.menuBarItems.isEmpty && UsageFixtureModule.last?.enabled == false,
+        "Hiding usage must stop and disable the plugin")
+    require(restarted.router.selection == selections, "Usage must not alter attendance/calendar routing")
+    restarted.stop()
+    let absent = PluginManagerModel(defaultAdapter: DefaultFeatureAdapter(), routingStore: routes, catalogStore: catalog)
+    absent.configureCatalog(sync: sync, presentations: PluginSettingsPresentationRegistry(), modules: [])
+    absent.setShowUsage(true); absent.start()
+    require(!absent.canShowUsage && !absent.showUsage && absent.menuBarItems.isEmpty, "Removed module must leave the app operational")
+    absent.stop()
+    let dev = PluginManagerModel(defaultAdapter: DefaultFeatureAdapter(), routingStore: FeatureRoutingStore(url: nil))
+    dev.configureCatalog(sync: sync, presentations: PluginSettingsPresentationRegistry(), modules: [UsageFixtureModule.self], allowsExternalIntegrations: false)
+    dev.setShowUsage(true); dev.start()
+    require(!dev.canShowUsage && !dev.showUsage && dev.menuBarItems.isEmpty, "Development profiles must not launch usage services")
+    dev.stop()
+    print("PASS usage display option: opt-in install/start/stop, persistent choice, provider-neutral status, unchanged calendar routes, module removal and development isolation")
+}
+
 @main
 struct PluginArchitectureChecks {
     @MainActor
@@ -820,6 +892,7 @@ struct PluginArchitectureChecks {
         try await checkDisabledRoutesAndMigration(root: root)
         try await checkUnreadableCatalogPreservesAttendance(root: root)
         try await checkLeaveGateInvalidation(root: root)
+        try checkUsageOption(root: root)
         let catalogURL = root.appendingPathComponent("catalog.json")
         let catalogStore = PluginCatalogStore(url: catalogURL)
         let emptyCatalog = try catalogStore.load()

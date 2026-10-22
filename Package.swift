@@ -13,6 +13,18 @@ let optionalTargets: [Target] = hasDaouoffice ? [
 ] : []
 let optionalDependencies: [Target.Dependency] = hasDaouoffice ? [.byName(name: "DaouOfficeIntegration")] : []
 
+let hasAIUsage = ProcessInfo.processInfo.environment["HAPPY_LULU_DISABLE_AI_USAGE"] != "1" &&
+    FileManager.default.fileExists(atPath: root.appendingPathComponent("Sources/AIUsagePlugin").path) &&
+    FileManager.default.fileExists(atPath: root.appendingPathComponent("Sources/AIUsageIntegration").path)
+let usageTargets: [Target] = hasAIUsage ? [
+    .target(name: "AIUsagePlugin"),
+    .target(name: "AIUsageIntegration", dependencies: ["AIUsagePlugin", "AppPluginCore", "AppPluginHost"]),
+    .testTarget(name: "AIUsageTests", dependencies: ["AIUsagePlugin", "AIUsageIntegration"])
+] : []
+let usageDependencies: [Target.Dependency] = hasAIUsage ? [.byName(name: "AIUsageIntegration")] : []
+let pluginDefines: [SwiftSetting] = (hasDaouoffice ? [.define("HAPPY_LULU_DAOUOFFICE_ENABLED")] : []) +
+    (hasAIUsage ? [.define("HAPPY_LULU_AI_USAGE_ENABLED")] : [])
+
 let package = Package(
     name: "HappyLulu",
     platforms: [.macOS(.v13)],
@@ -29,8 +41,8 @@ let package = Package(
         .target(name: "DaouOfficeWritePlugin"),
         .executableTarget(name: "DaouOfficeWriteChecks", dependencies: ["DaouOfficeWritePlugin"], path: "Tests/DaouOfficeWriteChecks"),
         .executableTarget(name: "AfterSix", dependencies: ["AfterSixCore", "MacLaunchSupport", "CalendarSyncCore", "CalendarSyncServices", "AppPluginCore", "AppPluginHost",
-            .product(name: "Sparkle", package: "Sparkle")] + optionalDependencies,
-            swiftSettings: hasDaouoffice ? [.define("HAPPY_LULU_DAOUOFFICE_ENABLED")] : [],
+            .product(name: "Sparkle", package: "Sparkle")] + optionalDependencies + usageDependencies,
+            swiftSettings: pluginDefines,
             linkerSettings: [.unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"])]),
         .executableTarget(name: "AfterSixChecks", dependencies: ["AfterSixCore", "MacLaunchSupport"], path: "Tests/AfterSixCoreTests"),
         .executableTarget(name: "AfterSixParityChecks", dependencies: ["AfterSixCore"], path: "Tests/AfterSixParityChecks"),
@@ -38,5 +50,5 @@ let package = Package(
         .executableTarget(name: "CalendarSyncServiceChecks", dependencies: ["CalendarSyncCore", "CalendarSyncServices"], path: "Tests/CalendarSyncServicesTests"),
         .executableTarget(name: "AppUpdateChecks", dependencies: [.product(name: "Sparkle", package: "Sparkle")],
             path: "Tests/AppUpdateChecks")
-    ] + optionalTargets
+    ] + optionalTargets + usageTargets
 )

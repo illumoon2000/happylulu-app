@@ -226,7 +226,11 @@ struct SettingsView: View {
                     } else {
                         if let settings = pluginPresentations.view(for: id) { settings }
                         else { Text(L("이 플러그인은 별도 설정이 없습니다.", "This plugin has no additional settings.")) }
-                        FeatureSourceSettingsView(model: plugins, features: [.calendar, .leave])
+                        if let registration = plugins.registrations.first(where: { $0.id == id }),
+                           !registration.adapter.descriptor.features.isEmpty {
+                            FeatureSourceSettingsView(model: plugins,
+                                features: [.calendar, .leave].filter { registration.adapter.descriptor.features.contains($0) })
+                        }
                     }
                 } else {
                     Text(L("사용 안 함 · 연결 설정과 기록은 보존됩니다.", "Off · connection settings and records are preserved."))
@@ -296,6 +300,23 @@ struct SettingsView: View {
                         .toggleStyle(.switch).labelsHidden()
                         .accessibilityLabel(L("메뉴바에 퇴근 예정 시각 표시", "Show expected departure in menu bar"))
                         .accessibilityIdentifier("settings-departure-switch")
+                }
+                GridRow {
+                    settingLabel(L("사용량 보기", "Show usage"))
+                    VStack(alignment: .leading, spacing: 5) {
+                        let titles = plugins.menuBarItems.map(\.title).joined(separator: " · ")
+                        settingExample(titles.isEmpty ? L("표시 안 함", "Hidden") : titles)
+                        if plugins.showUsage, let id = plugins.usagePluginID {
+                            Button(L("사용량 설정", "Usage settings")) {
+                                navigation.pluginID = id; navigation.selection = .plugin
+                            }
+                        }
+                    }
+                    Toggle(L("사용량 보기", "Show usage"), isOn: Binding(
+                        get: { plugins.showUsage }, set: { plugins.setShowUsage($0) }))
+                        .toggleStyle(.switch).labelsHidden().disabled(!plugins.canShowUsage)
+                        .accessibilityLabel(L("사용량 보기", "Show usage"))
+                        .accessibilityIdentifier("settings-usage-switch")
                 }
                 GridRow {
                     settingLabel(L("로그인 시 자동 실행", "Launch at login"))
