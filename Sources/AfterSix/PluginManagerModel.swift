@@ -120,7 +120,10 @@ final class PluginManagerModel: ObservableObject {
                 available: modules.contains { $0.id == "daouoffice" }),
             PluginCatalogEntry(id: "leave-detection", name: L("휴가 자동 인식", "Leave recognition"), author: PluginAuthors.contributors,
                 summary: L("연결된 일정의 오전·오후 반차 인식", "Morning/afternoon half-day recognition from connected calendars"),
-                symbol: "leaf", available: true)
+                symbol: "leaf", available: true),
+            PluginCatalogEntry(id: "cpu-runner", name: L("CPU 러너", "CPU Runner"), author: PluginAuthors.contributors,
+                summary: L("CPU 사용량에 맞춰 달리는 햄스터·토끼·고양이", "A hamster, rabbit or cat that runs with CPU activity"),
+                symbol: "pawprint", available: modules.contains { $0.id == "cpu-runner" })
         ]
         factories["mac-calendar"] = { [weak self, weak sync] in
             guard let self, let sync else { return }

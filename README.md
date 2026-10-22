@@ -64,6 +64,7 @@ HappyLulu는 개인 편의 도구입니다. 회사의 공식 근태 시스템이
 | 안내 | 내용 |
 | --- | --- |
 | [사용자 가이드](docs/USER-GUIDE.md) | 설치, 설정, 근무 계산, 기록과 알려진 범위 |
+| [CPU 러너 개발 후보](docs/CPU-RUNNER.md) | Mac 메뉴바의 햄스터·토끼·고양이 선택형 플러그인. 공개 버전 미포함 |
 | [Windows 가이드](windows/README.md) | 런타임, 트레이, 자동 실행과 빌드 |
 | [Mac·Windows 기능 현황](docs/PLATFORM-STATUS.md) | 개발 계획 없음·개발 중·개발 완료와 공통 main 운영 기준 |
 | [캘린더 안내](CALENDAR.md) | Mac의 지원 범위, 연결·미리보기와 복구 |

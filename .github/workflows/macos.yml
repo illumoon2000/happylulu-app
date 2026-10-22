@@ -60,6 +60,8 @@ jobs:
           swift run --build-system native CalendarSyncServiceChecks
       - name: Check isolated calendar and updater integration
         run: |
+          swift run --build-system native CPURunnerChecks
+          bash scripts/check-runner-artwork.sh
           bash scripts/check-calendar-model.sh
           bash scripts/check-calendar-diagnostics.sh
           bash scripts/check-calendar-runtime.sh

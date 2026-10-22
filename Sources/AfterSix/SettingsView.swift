@@ -1,3 +1,4 @@
+import AppPluginCore
 import AppPluginHost
 import SwiftUI
 import ServiceManagement
@@ -226,7 +227,11 @@ struct SettingsView: View {
                     } else {
                         if let settings = pluginPresentations.view(for: id) { settings }
                         else { Text(L("이 플러그인은 별도 설정이 없습니다.", "This plugin has no additional settings.")) }
-                        FeatureSourceSettingsView(model: plugins, features: [.calendar, .leave])
+                        let supported = plugins.registrations.first(where: { $0.id == id })?.adapter.descriptor.features ?? []
+                        let routedFeatures = [AppFeature.calendar, .leave].filter { supported.contains($0) }
+                        if !routedFeatures.isEmpty {
+                            FeatureSourceSettingsView(model: plugins, features: routedFeatures)
+                        }
                     }
                 } else {
                     Text(L("사용 안 함 · 연결 설정과 기록은 보존됩니다.", "Off · connection settings and records are preserved."))

@@ -3,6 +3,7 @@ import SwiftUI
 import Combine
 import AppPluginCore
 import AppPluginHost
+import CPURunnerIntegration
 import AfterSixCore
 import CalendarSyncServices
 
@@ -797,6 +798,45 @@ private func checkLeaveGateInvalidation(root: URL) async throws {
     print("PASS leave recognition lifecycle: stale title/permission replies, manual selection, enabled intent before connection and permission retry")
 }
 
+@MainActor
+private func checkRunnerCatalog(root: URL) throws {
+    let sync = CalendarSyncModel(calendarAccess: ProbeCalendarAccess(), runtimeAllowed: false)
+    let store = PluginCatalogStore(url: root.appendingPathComponent("runner-catalog.json"))
+    let presentations = PluginSettingsPresentationRegistry()
+    let manager = PluginManagerModel(defaultAdapter: DefaultFeatureAdapter(),
+        routingStore: FeatureRoutingStore(url: nil), catalogStore: store)
+    manager.configureCatalog(sync: sync, presentations: presentations, modules: [CPURunnerModule.self])
+    require(manager.catalog.first(where: { $0.id == "cpu-runner" })?.available == true,
+        "Bundled CPU runner must appear as available")
+    require(!manager.isInstalled("cpu-runner") && manager.registrations.isEmpty,
+        "CPU runner must remain opt-in on first launch")
+    manager.install("cpu-runner")
+    require(manager.isInstalled("cpu-runner") && !manager.isEnabled("cpu-runner"),
+        "Installing the runner must not automatically start CPU monitoring")
+    require(presentations.view(for: "cpu-runner") != nil, "CPU runner settings must be registered")
+    require(manager.registrations.first?.adapter.descriptor.features.isEmpty == true,
+        "CPU runner must not offer calendar, leave or half-day routing")
+    manager.start()
+    require(!manager.isRunning && manager.registrations.first?.controller.enabled == false,
+        "An installed disabled runner must remain idle and must not block updates")
+    manager.stop()
+    let restarted = PluginManagerModel(defaultAdapter: DefaultFeatureAdapter(),
+        routingStore: FeatureRoutingStore(url: nil), catalogStore: store)
+    restarted.configureCatalog(sync: sync, presentations: PluginSettingsPresentationRegistry(), modules: [CPURunnerModule.self])
+    require(restarted.isInstalled("cpu-runner") && !restarted.isEnabled("cpu-runner"),
+        "Runner installation and disabled state must survive restart")
+    try store.save(PluginCatalogState(installed: ["cpu-runner": true]))
+    let isolated = PluginManagerModel(defaultAdapter: DefaultFeatureAdapter(),
+        routingStore: FeatureRoutingStore(url: nil), catalogStore: store)
+    isolated.configureCatalog(sync: sync, presentations: PluginSettingsPresentationRegistry(),
+        modules: [CPURunnerModule.self], allowsExternalIntegrations: false)
+    isolated.start()
+    require(isolated.registrations.isEmpty && !isolated.isRunning,
+        "An isolated preview profile must never activate a persisted runner")
+    isolated.stop()
+    print("PASS CPU runner catalog: opt-in install, settings, no attendance routes, disabled restart and profile isolation")
+}
+
 @main
 struct PluginArchitectureChecks {
     @MainActor
@@ -817,6 +857,7 @@ struct PluginArchitectureChecks {
         try await checkInjectedAsyncClock(root: root)
         try checkLegacyBuiltinMigration(root: root)
         try await checkOptionalCatalog(root: root)
+        try checkRunnerCatalog(root: root)
         try await checkDisabledRoutesAndMigration(root: root)
         try await checkUnreadableCatalogPreservesAttendance(root: root)
         try await checkLeaveGateInvalidation(root: root)

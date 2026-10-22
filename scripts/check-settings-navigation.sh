@@ -38,6 +38,7 @@ swiftc -parse-as-library -swift-version 6 -target "$(uname -m)-apple-macosx13.0"
   Sources/AfterSix/FeatureCalendarView.swift Sources/AfterSix/CalendarWorkspaceView.swift \
   Sources/AfterSix/CalendarSyncSettingsView.swift "$probe_dir/AppearanceModel.swift" Tests/SettingsNavigationProbe/main.swift \
   "$build_dir"/AppPluginCore.build/*.swift.o "$build_dir"/AppPluginHost.build/*.swift.o \
+  "$build_dir"/CPURunnerIntegration.build/*.swift.o \
   "$build_dir"/AfterSixCore.build/*.swift.o "$build_dir"/CalendarSyncServices.build/*.swift.o \
   "$build_dir"/CalendarSyncCore.build/*.swift.o \
   -framework AppKit -framework SwiftUI -framework CoreImage -framework Security \

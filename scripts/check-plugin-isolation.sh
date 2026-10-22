@@ -21,7 +21,7 @@ swift build --build-system native --disable-automatic-resolution --skip-update -
 binary_dir="$(swift build --build-system native --show-bin-path)"
 test ! -e "$binary_dir/Modules/DaouOfficePlugin.swiftmodule"
 test ! -e "$binary_dir/Modules/DaouOfficeIntegration.swiftmodule"
-test -z "$("$binary_dir/HappyLulu" --plugin-modules)"
+test "$("$binary_dir/HappyLulu" --plugin-modules)" = "cpu-runner"
 swift run --build-system native AfterSixChecks
 bash scripts/check-plugin-architecture.sh
 printf 'PASS plugin removal: both Daouoffice source modules absent; base app builds, runs composition diagnostics and passes attendance/host checks.\n'

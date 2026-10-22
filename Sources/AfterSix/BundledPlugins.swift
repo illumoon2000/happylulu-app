@@ -1,4 +1,5 @@
 import AppPluginHost
+import CPURunnerIntegration
 #if HAPPY_LULU_DAOUOFFICE_ENABLED && canImport(DaouOfficeIntegration)
 import DaouOfficeIntegration
 #endif
@@ -8,9 +9,9 @@ import DaouOfficeIntegration
 enum BundledPlugins {
     static var modules: [any PluginModule.Type] {
         #if HAPPY_LULU_DAOUOFFICE_ENABLED && canImport(DaouOfficeIntegration)
-        [DaouOfficeModule.self]
+        [CPURunnerModule.self, DaouOfficeModule.self]
         #else
-        []
+        [CPURunnerModule.self]
         #endif
     }
     static func legacyDaouConfigured() throws -> Bool {
