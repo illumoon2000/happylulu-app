@@ -18,7 +18,7 @@ if [[ -e "$release_dir" ]]; then
 fi
 mkdir -p "$project_dir/dist"
 staging_dir="$(mktemp -d "$project_dir/dist/.release-stage.XXXXXX")"
-app_dir="$staging_dir/HappyLulu.app"
+app_dir="$staging_dir/happylulu.app"
 mkdir -p "$app_dir/Contents/MacOS" "$app_dir/Contents/Resources"
 python3 - "$staging_dir/build-source.json" <<'PY'
 import json,subprocess,sys
@@ -57,11 +57,11 @@ bash scripts/sign-app.sh "$app_dir"
 
 mkdir -p "$release_dir"
 cp "$staging_dir/build-source.json" "$release_dir/"
-cp -R "$app_dir" "$release_dir/HappyLulu.app"
+cp -R "$app_dir" "$release_dir/happylulu.app"
 ditto -c -k --keepParent --norsrc --noextattr "$app_dir" "$release_dir/HappyLulu-$version-universal.zip"
 image_source="$staging_dir/image"
 mkdir -p "$image_source"
-cp -R "$app_dir" "$image_source/HappyLulu.app"
+cp -R "$app_dir" "$image_source/happylulu.app"
 ln -s /Applications "$image_source/Applications"
 cp RELEASE-NOTES.md "$image_source/시작하기.txt"
 cp LICENSE THIRD_PARTY_NOTICES.md "$image_source/"

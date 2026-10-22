@@ -42,7 +42,7 @@ def sha(path):
 
 
 def protected_snapshot():
-    app = HOME / 'Applications/HappyLulu.app'
+    app = HOME / 'Applications/happylulu.app'
     attendance_roots = [HOME / 'Library/Application Support/AfterSix', HOME / 'Library/Application Support/HappyLulu']
     attendance = {}
     state_file = HOME / 'Library/Application Support/AfterSix/state.json'

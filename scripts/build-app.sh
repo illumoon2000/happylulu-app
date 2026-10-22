@@ -7,7 +7,16 @@ for required in LICENSE THIRD_PARTY_NOTICES.md; do
 done
 swift build --build-system native -c release --product HappyLulu --disable-local-rpath
 binary_dir="$(swift build --build-system native -c release --show-bin-path)"
-app_dir="$project_dir/dist/HappyLulu.app"
+app_dir="$project_dir/dist/happylulu.app"
+for existing_app in "$project_dir/dist/"*.app; do
+    # A case-insensitive volume otherwise keeps the old physical folder name.
+    if [[ "$existing_app" -ef "$app_dir" && "${existing_app##*/}" != "happylulu.app" ]]; then
+        rename_dir="$(mktemp -d "$project_dir/dist/.app-name.XXXXXX")"
+        mv "$existing_app" "$rename_dir/happylulu.app"
+        mv "$rename_dir/happylulu.app" "$app_dir"
+        rmdir "$rename_dir"
+    fi
+done
 mkdir -p "$app_dir/Contents/MacOS" "$app_dir/Contents/Resources"
 cp "$binary_dir/HappyLulu" "$app_dir/Contents/MacOS/HappyLulu"
 cp Resources/Info.plist "$app_dir/Contents/Info.plist"
