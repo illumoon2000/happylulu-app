@@ -6,12 +6,13 @@ import subprocess
 import sys
 import tempfile
 sys.dont_write_bytecode = True
-from release_delivery import checksums, names, safe_file
+from release_delivery import APP_BUNDLE, archive_bundle_check, checksums, names, safe_file
 root = Path(__file__).resolve().parent.parent
 release = Path(sys.argv[1]).resolve()
 info = plistlib.loads((root / 'Resources/Info.plist').read_bytes())
 version = info['CFBundleShortVersionString']
-app = release / 'HappyLulu.app'
+assert [entry.name for entry in release.iterdir() if entry.suffix == '.app'] == [APP_BUNDLE], 'Release bundle name differs'
+app = release / APP_BUNDLE
 assert (app / 'Contents/Info.plist').read_bytes() == (root / 'Resources/Info.plist').read_bytes()
 assert (release / 'RELEASE-NOTES.md').read_bytes() == (root / 'RELEASE-NOTES.md').read_bytes()
 for resource in [root / 'Resources/HappyLuluBrand.png', *sorted((root / 'Resources/OwlStates').glob('*.png'))]:
@@ -41,15 +42,17 @@ subprocess.run(['codesign', '--verify', '--deep', '--strict', str(app)], check=T
 with tempfile.TemporaryDirectory(prefix='verify-release-', dir=root / 'dist') as temporary:
     temporary = Path(temporary)
     extracted = temporary / 'zip'
+    archive_bundle_check(release / f'HappyLulu-{version}-universal.zip')
     subprocess.run(['ditto', '-x', '-k', str(release / f'HappyLulu-{version}-universal.zip'), str(extracted)], check=True)
-    zipped = extracted / 'HappyLulu.app'
+    zipped = extracted / APP_BUNDLE
     assert manifest(zipped) == expected, 'ZIP differs'
     subprocess.run(['codesign', '--verify', '--deep', '--strict', str(zipped)], check=True)
     mount = temporary / 'dmg'
     mount.mkdir()
     subprocess.run(['hdiutil', 'attach', '-readonly', '-nobrowse', '-mountpoint', str(mount), str(release / f'HappyLulu-{version}-universal.dmg')], check=True, stdout=subprocess.DEVNULL)
     try:
-        mounted = mount / 'HappyLulu.app'
+        assert [entry.name for entry in mount.iterdir() if entry.suffix == '.app'] == [APP_BUNDLE], 'DMG bundle name differs'
+        mounted = mount / APP_BUNDLE
         assert manifest(mounted) == expected, 'DMG differs'
         assert (mount / '시작하기.txt').read_bytes() == (root / 'RELEASE-NOTES.md').read_bytes()
         for name in ('LICENSE', 'THIRD_PARTY_NOTICES.md'):

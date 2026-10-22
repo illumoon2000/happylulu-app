@@ -90,7 +90,7 @@ jobs:
           python3 scripts/verify-release.py "dist/releases/$version-build$build"
           echo "RELEASE_DIR=dist/releases/$version-build$build" >> "$GITHUB_ENV"
       - name: Check Sparkle configuration without private keys
-        run: swift run --build-system native AppUpdateChecks "$RELEASE_DIR/HappyLulu.app" --configuration-only
+        run: swift run --build-system native AppUpdateChecks "$RELEASE_DIR/happylulu.app" --configuration-only
       - uses: actions/upload-artifact@v4
         with:
           name: HappyLulu-macos-unsigned-for-distribution-${{ github.sha }}

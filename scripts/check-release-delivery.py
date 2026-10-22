@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
 from unittest.mock import patch
 
 sys.dont_write_bytecode = True
@@ -103,6 +104,33 @@ try Data(key.publicKey.rawRepresentation.base64EncodedString().utf8).write(to: f
         path = Path(self.temporary.name) / "evidence.json"
         path.write_text(json.dumps(value))
         return path
+
+    def test_archive_requires_lowercase_bundle_root(self):
+        archive = self.folder / delivery.names(self.value)[0]
+        with zipfile.ZipFile(archive, "w") as output:
+            output.writestr("happylulu.app/Contents/Info.plist", b"fixture metadata")
+            output.writestr("happylulu.app/Contents/MacOS/HappyLulu", b"fixture executable")
+        delivery.archive_bundle_check(archive)
+
+    def test_archive_rejects_uppercase_or_mixed_bundle_roots(self):
+        archive = self.folder / delivery.names(self.value)[0]
+        for roots in (("HappyLulu.app",), ("happylulu.app", "HappyLulu.app")):
+            with self.subTest(roots=roots):
+                with zipfile.ZipFile(archive, "w") as output:
+                    for root in roots:
+                        output.writestr(root + "/Contents/Info.plist", b"fixture metadata")
+                        output.writestr(root + "/Contents/MacOS/HappyLulu", b"fixture executable")
+                with self.assertRaisesRegex(ValueError, "ZIP must contain only happylulu.app"):
+                    delivery.archive_bundle_check(archive)
+
+    def test_archive_requires_metadata_and_existing_executable_name(self):
+        archive = self.folder / delivery.names(self.value)[0]
+        for member in ("Contents/Info.plist", "Contents/MacOS/HappyLulu"):
+            with self.subTest(member=member):
+                with zipfile.ZipFile(archive, "w") as output:
+                    output.writestr("happylulu.app/" + member, b"fixture")
+                with self.assertRaisesRegex(ValueError, "ZIP bundle is missing metadata or executable"):
+                    delivery.archive_bundle_check(archive)
 
     def test_real_ephemeral_signatures_and_feed_contract(self):
         self.feed_check()

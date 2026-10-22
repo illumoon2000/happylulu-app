@@ -15,6 +15,7 @@ import sys
 import tempfile
 import urllib.request
 import xml.etree.ElementTree as ET
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 REPO = "young221718/happylulu-app"
@@ -22,6 +23,7 @@ FEED_TAG = "macos-update-feed"
 DOWNLOAD = f"https://github.com/{REPO}/releases/download/"
 FEED_URL = f"{DOWNLOAD}{FEED_TAG}/appcast.xml"
 SPARKLE = "{http://www.andymatuschak.org/xml-namespaces/sparkle}"
+APP_BUNDLE = "happylulu.app"
 
 
 def require(condition, message):
@@ -112,8 +114,17 @@ def feed_check(folder, value):
     signature_check(feed, value, archive, note_path)
 
 
+def archive_bundle_check(archive):
+    with zipfile.ZipFile(archive) as source:
+        members = set(source.namelist())
+    require({name.split("/", 1)[0] for name in members} == {APP_BUNDLE},
+            "ZIP must contain only happylulu.app at its root")
+    require({f"{APP_BUNDLE}/Contents/Info.plist", f"{APP_BUNDLE}/Contents/MacOS/HappyLulu"} <= members,
+            "ZIP bundle is missing metadata or executable")
+
+
 def signing_requirement(folder):
-    app = folder / "HappyLulu.app"
+    app = folder / APP_BUNDLE
     result = subprocess.run(["codesign", "-d", "-r-", str(app)], cwd=ROOT,
                             text=True, capture_output=True, check=True)
     lines = (result.stdout + result.stderr).splitlines()
@@ -234,7 +245,7 @@ def remote_assets(folder, value, metadata, *, public=False):
 
 def draft_command(folder, value, metadata):
     return gh("release", "create", metadata["tag"], *asset_paths(folder, value), "--draft", "--latest=false",
-              "--target", metadata["sourceCommit"], "--title", f'HappyLulu for Mac {metadata["version"]} · build {metadata["build"]}',
+              "--target", metadata["sourceCommit"], "--title", f'happylulu for Mac {metadata["version"]} · build {metadata["build"]}',
               "--notes-file", safe_file(folder, "RELEASE-NOTES.md"))
 
 
