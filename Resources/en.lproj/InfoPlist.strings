@@ -1,2 +1,4 @@
+"CFBundleDisplayName" = "happylulu";
+"CFBundleName" = "happylulu";
 "NSCalendarsUsageDescription" = "Recognizes morning and afternoon half-days from permitted event titles and syncs the Daouoffice and Google calendars you select.";
 "NSCalendarsFullAccessUsageDescription" = "Recognizes morning and afternoon half-days from permitted event titles and syncs the Daouoffice and Google calendars you select.";

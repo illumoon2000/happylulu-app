@@ -14,6 +14,8 @@ version = info['CFBundleShortVersionString']
 app = release / 'HappyLulu.app'
 assert (app / 'Contents/Info.plist').read_bytes() == (root / 'Resources/Info.plist').read_bytes()
 assert (release / 'RELEASE-NOTES.md').read_bytes() == (root / 'RELEASE-NOTES.md').read_bytes()
+for resource in [root / 'Resources/HappyLuluBrand.png', *sorted((root / 'Resources/OwlStates').glob('*.png'))]:
+    assert (app / 'Contents/Resources' / resource.relative_to(root / 'Resources')).read_bytes() == resource.read_bytes()
 for language in ('ko', 'en'):
     assert (app / f'Contents/Resources/{language}.lproj/InfoPlist.strings').read_bytes() == (root / f'Resources/{language}.lproj/InfoPlist.strings').read_bytes()
 assert set(subprocess.check_output(['lipo', '-archs', str(app / 'Contents/MacOS/HappyLulu')], text=True).split()) == {'arm64', 'x86_64'}

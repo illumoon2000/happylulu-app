@@ -12,10 +12,82 @@ struct AppearanceModelProbe {
         let original = NSImage(contentsOf: source)!
         let store = AppearanceStore(rootDirectory: root, bundleIdentifier: "test.happylulu.appearance-model")
         let model = AppearanceModel(store: store, originalIcon: original)
+        precondition(model.preferences.palette == .offwhiteLilac, "New profiles must use the approved palette")
+        var menuPixels = Set<Data>()
+        var headerPixels = Set<Data>()
+        let assets: [(LuluDisplayState, String)] = [(.waiting, "waiting"), (.regular, "regular"),
+            (.luluDay, "luluDay"), (.morningHalf, "morningHalf"), (.afternoonHalf, "afternoonHalf"),
+            (.readyToLeave, "readyToLeave"), (.annualLeave, "annualLeave"), (.dayOff, "dayOff")]
+        for (state, filename) in assets {
+            let image = LuluBrand.menuBarIcon(for: state)
+            precondition(image === LuluBrand.menuBarIcon(for: state), "Timer updates must reuse each cached state")
+            precondition(image.isTemplate && image.size == NSSize(width: 26, height: 18))
+            let reps = image.representations.compactMap { $0 as? NSBitmapImageRep }
+            precondition(reps.count == 2, "Menu symbols need cached 1x and 2x pixels")
+            // A doubled bitmap CTM crops the Retina face even when every state has unique bytes.
+            let bounds = reps.enumerated().map { index, rep -> CGRect in
+                let scale = index + 1
+                precondition(rep.pixelsWide == 26 * scale && rep.pixelsHigh == 18 * scale)
+                var x0 = rep.pixelsWide, y0 = rep.pixelsHigh, x1 = 0, y1 = 0, opaquePixels = 0
+                for y in 0..<rep.pixelsHigh {
+                    for x in 0..<rep.pixelsWide where rep.colorAt(x: x, y: y)!.alphaComponent > 0.2 {
+                        opaquePixels += 1
+                        x0 = min(x0, x); y0 = min(y0, y); x1 = max(x1, x); y1 = max(y1, y)
+                    }
+                }
+                precondition(opaquePixels > 40 * scale * scale && x1 > x0 && y1 > y0,
+                    "Every menu state needs a visible face, not empty or degenerate bounds")
+                precondition(x0 > 0 && y0 > 0 && x1 < rep.pixelsWide - 1 && y1 < rep.pixelsHigh - 1,
+                    "The complete outline must fit inside every backing scale")
+                return CGRect(x: CGFloat(x0) / CGFloat(scale), y: CGFloat(y0) / CGFloat(scale),
+                    width: CGFloat(x1 - x0 + 1) / CGFloat(scale), height: CGFloat(y1 - y0 + 1) / CGFloat(scale))
+            }
+            precondition(abs(bounds[0].minX - bounds[1].minX) <= 1 && abs(bounds[0].minY - bounds[1].minY) <= 1
+                && abs(bounds[0].width - bounds[1].width) <= 1 && abs(bounds[0].height - bounds[1].height) <= 1,
+                "Retina symbol must preserve the complete 1x face geometry")
+            menuPixels.insert(image.tiffRepresentation!)
+            let header = LuluBrand.headerIcon(for: state)
+            precondition(header === LuluBrand.headerIcon(for: state) && !header.isTemplate)
+            precondition(header.size == NSSize(width: 28, height: 28))
+            let url = Bundle.main.url(forResource: filename, withExtension: "png", subdirectory: "OwlStates")!
+            let asset = NSImage(contentsOf: url)!
+            let headerReps = header.representations.compactMap { $0 as? NSBitmapImageRep }
+            precondition(headerReps.count == 2, "Headers need cached 1x and 2x color pixels")
+            for (index, rep) in headerReps.enumerated() {
+                let scale = index + 1
+                precondition(rep.pixelsWide == 28 * scale && rep.pixelsHigh == 28 * scale)
+                let expected = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 28 * scale,
+                    pixelsHigh: 28 * scale, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
+                    isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+                expected.size = header.size
+                NSGraphicsContext.saveGraphicsState()
+                NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: expected)
+                NSGraphicsContext.current!.imageInterpolation = .high
+                let ratio = min(28 / asset.size.width, 28 / asset.size.height)
+                let size = NSSize(width: asset.size.width * ratio, height: asset.size.height * ratio)
+                asset.draw(in: NSRect(x: (28 - size.width) / 2, y: (28 - size.height) / 2,
+                    width: size.width, height: size.height))
+                NSGraphicsContext.restoreGraphicsState()
+                precondition(rep.representation(using: .png, properties: [:]) == expected.representation(using: .png, properties: [:]),
+                    "Header must use the matching bundled color face: \(filename)")
+                var hasColor = false, hasTransparency = false
+                for y in 0..<rep.pixelsHigh {
+                    for x in 0..<rep.pixelsWide {
+                        let color = rep.colorAt(x: x, y: y)!.usingColorSpace(.deviceRGB)!
+                        hasTransparency = hasTransparency || color.alphaComponent < 0.1
+                        hasColor = hasColor || (color.alphaComponent > 0.5 && abs(color.redComponent - color.blueComponent) > 0.1)
+                    }
+                }
+                precondition(hasColor && hasTransparency, "Headers must preserve the colored transparent face")
+            }
+            headerPixels.insert(header.tiffRepresentation!)
+        }
+        precondition(menuPixels.count == 8, "Each state must retain a distinct expression in monochrome")
+        precondition(headerPixels.count == 8, "Every state needs its matching color face")
         let mint = model.image(for: .mint)
         precondition(model.image(for: .mint) === mint, "Repeated preview requests must reuse the rendered icon")
         let expected: [(AppearancePalette, String)] = [(.softMint,"#E9EFEB"),(.warmStone,"#EEEAE3"),
-            (.blueGray,"#E7EDF1"),(.dustyLavender,"#EEEAF1"),(.charcoal,"#252A2D")]
+            (.blueGray,"#E7EDF1"),(.dustyLavender,"#EEEAF1"),(.charcoal,"#252A2D"),(.offwhiteLilac,"#FAF9FC")]
         for (palette, background) in expected {
             model.selectPalette(palette)
             precondition(model.errorMessage == nil && model.hex(.background) == background)
@@ -136,6 +208,6 @@ struct AppearanceModelProbe {
         protectedModel.selectPalette(.warmStone)
         let preserved = try Data(contentsOf:store.preferencesURL)
         precondition(preserved == corrupt)
-        print("PASS appearance model: five live palettes, HEX rejection/reset, five distinct cached runtime icons, per-model cache isolation, fresh PNG/JPEG replacement, superseded-copy cleanup after persistence, failed validation/save and restart preserve referenced images and original sources, corrupt bytes preserved")
+        print("PASS appearance model: six live palettes, eight distinct 26x18 template symbols and matching bundled 28pt color headers at1x/2x, HEX rejection/reset, five distinct cached runtime icons, per-model cache isolation, fresh PNG/JPEG replacement, superseded-copy cleanup after persistence, failed validation/save and restart preserve referenced images and original sources, corrupt bytes preserved")
     }
 }

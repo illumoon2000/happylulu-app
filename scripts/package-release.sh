@@ -43,6 +43,8 @@ for architecture in arm64 x86_64; do
   case "$architectures" in *" $architecture "*) ;; *) printf 'Missing architecture: %s\n' "$architecture" >&2; exit 1;; esac
 done
 cp Resources/Info.plist "$app_dir/Contents/Info.plist"
+cp Resources/HappyLuluBrand.png "$app_dir/Contents/Resources/"
+cp -R Resources/OwlStates "$app_dir/Contents/Resources/"
 cp LICENSE THIRD_PARTY_NOTICES.md "$app_dir/Contents/Resources/"
 for language in ko en; do
     mkdir -p "$app_dir/Contents/Resources/$language.lproj"
@@ -63,7 +65,7 @@ cp -R "$app_dir" "$image_source/HappyLulu.app"
 ln -s /Applications "$image_source/Applications"
 cp RELEASE-NOTES.md "$image_source/시작하기.txt"
 cp LICENSE THIRD_PARTY_NOTICES.md "$image_source/"
-hdiutil create -volname "HappyLulu $version" -srcfolder "$image_source" -format UDZO \
+hdiutil create -volname "happylulu $version" -srcfolder "$image_source" -format UDZO \
   -o "$release_dir/HappyLulu-$version-universal.dmg"
 cp RELEASE-NOTES.md "$release_dir/RELEASE-NOTES.md"
 cp LICENSE THIRD_PARTY_NOTICES.md "$release_dir/"

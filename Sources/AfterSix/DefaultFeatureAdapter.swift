@@ -6,7 +6,7 @@ import AppPluginHost
 /// Core attendance never touches optional services.
 @MainActor
 final class DefaultFeatureAdapter: FeatureAdapter {
-    let descriptor = FeatureAdapterDescriptor(id: "builtin", name: "HappyLulu", features: Set(AppFeature.allCases))
+    let descriptor = FeatureAdapterDescriptor(id: "builtin", name: "happylulu", features: Set(AppFeature.allCases))
     init(sync: CalendarSyncModel? = nil) {}
     func calendarEvents(in interval: DateInterval) async throws -> [FeatureCalendarEvent] { [] }
     func leaveSnapshot() -> PluginSnapshot? { nil }

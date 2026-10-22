@@ -1,2 +1,4 @@
+"CFBundleDisplayName" = "happylulu";
+"CFBundleName" = "happylulu";
 "NSCalendarsUsageDescription" = "허용한 일정 제목에서 오전·오후 반차를 인식하고, 별도로 선택한 다우오피스·Google 캘린더를 동기화합니다.";
 "NSCalendarsFullAccessUsageDescription" = "허용한 일정 제목에서 오전·오후 반차를 인식하고, 별도로 선택한 다우오피스·Google 캘린더를 동기화합니다.";

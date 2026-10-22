@@ -53,6 +53,24 @@ final class SettingsNavigation: ObservableObject {
     @Published var pluginID: String?
 }
 
+// Fixed fictional examples: formatting follows the selected option without reading attendance or a clock.
+enum GeneralSettingsPreview {
+    static var guideURL: URL {
+        URL(string: L("https://happylulu.cy-choi-lulu.chatgpt.site/guide/",
+                      "https://happylulu.cy-choi-lulu.chatgpt.site/en/guide/"))!
+    }
+
+    static func countdown(_ display: CountdownDisplay) -> String {
+        let value = display.text(seconds: 5_320, korean: L("ko", "en") == "ko")
+        return L("\(value) 남음", "\(value) left")
+    }
+
+    static func departure(_ display: CountdownDisplay, shown: Bool) -> String {
+        let remaining = countdown(display)
+        return shown ? L("퇴근 18:00 · \(remaining)", "Leave 18:00 · \(remaining)") : remaining
+    }
+}
+
 struct SettingsView: View {
     @ObservedObject private var appearance = AppearanceModel.shared
     @ObservedObject var model: AppModel
@@ -71,8 +89,8 @@ struct SettingsView: View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 8) {
-                    Image(nsImage: appearance.iconImage).resizable().frame(width: 24, height: 24)
-                    Text("HappyLulu").font(.headline)
+                    Image(nsImage: LuluBrand.headerIcon).resizable().interpolation(.high).frame(width: 24, height: 24)
+                    Text("happylulu").font(.headline)
                 }.padding(.horizontal, 16).padding(.top, 20)
                 ScrollView {
                     VStack(alignment: .leading, spacing: 3) {
@@ -97,8 +115,11 @@ struct SettingsView: View {
                         }
                     }.padding(.horizontal, 10)
                 }.accessibilityLabel(L("설정 항목", "Settings sections"))
-                Button(L("HappyLulu 종료", "Quit HappyLulu")) { NSApplication.shared.terminate(nil) }
-                    .buttonStyle(.borderless).padding(12)
+                Link(destination: GeneralSettingsPreview.guideURL) {
+                    Label(L("사용 안내", "User guide"), systemImage: "book")
+                }
+                .accessibilityIdentifier("settings-user-guide")
+                .padding(12)
             }
             .frame(width: 205).background(appearance.sidebar)
             Divider()
@@ -226,39 +247,88 @@ struct SettingsView: View {
 
     private var generalSection: some View {
         GroupBox(L("일반", "General")) {
-            VStack(alignment: .leading, spacing: 12) {
-                Picker(L("언어", "Language"), selection: Binding(
-                    get: { language.choice }, set: { language.select($0) })) {
-                    ForEach(LanguageChoice.allCases) { choice in
-                        Text(choice.label).tag(choice)
-                    }
+            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 20) {
+                GridRow {
+                    Color.clear.frame(width: 140, height: 1).accessibilityHidden(true)
+                    Text(L("미리보기", "Preview")).font(.caption).foregroundStyle(.secondary)
+                        .accessibilityAddTraits(.isHeader)
+                    Color.clear.frame(width: 190, height: 1).accessibilityHidden(true)
                 }
-                .pickerStyle(.menu)
-                Picker(L("퇴근까지 남은 시간 표시", "Countdown display"), selection: Binding(
-                    get: { model.countdownDisplay }, set: { model.setCountdownDisplay($0) })) {
-                    ForEach(CountdownDisplay.allCases, id: \.self) { choice in
-                        Text(choice.displayLabel).tag(choice)
-                    }
+                GridRow {
+                    settingLabel(L("언어", "Language"))
+                    settingExample(L("안녕하세요, happylulu예요", "Hello from happylulu"))
+                    Picker(L("언어", "Language"), selection: Binding(
+                        get: { language.choice }, set: { language.select($0) })) {
+                        ForEach(LanguageChoice.allCases) { choice in
+                            Text(choice.label).tag(choice)
+                        }
+                    }.pickerStyle(.menu).labelsHidden()
+                        .accessibilityLabel(L("언어", "Language"))
+                        .frame(width: 190, alignment: .trailing)
+                        .gridColumnAlignment(.trailing)
                 }
-                .pickerStyle(.menu)
-                Text(L("시간은 0.1시간씩, 다른 단위는 선택한 단위로 올림합니다. 밀리초는 0.1초마다 갱신합니다.", "Hours round up in 0.1-hour steps; other units round up to the selected unit. Milliseconds refresh every 0.1 seconds."))
-                    .font(.caption).foregroundStyle(.secondary)
-                Toggle(L("메뉴바에 퇴근 예정 시각 표시", "Show expected departure in menu bar"), isOn: Binding(
-                    get: { model.showDepartureInMenuBar }, set: { model.setShowDepartureInMenuBar($0) }))
-                    .toggleStyle(.switch)
-                Text(L("꺼도 남은 시간과 선택한 표시 단위는 유지됩니다.", "The countdown and selected time format remain when turned off."))
-                    .font(.caption).foregroundStyle(.secondary)
-                Toggle(L("로그인 시 자동 실행", "Launch at login"), isOn: Binding(
-                    get: { model.loginEnabled }, set: { model.setLoginEnabled($0) }))
-                    .toggleStyle(.switch).disabled(!model.allowsLoginItemChanges)
-                Text(model.loginDescription).foregroundStyle(.secondary)
-                if model.loginStatus == .requiresApproval {
-                    Button(L("시스템 설정에서 허용", "Allow in System Settings")) { SMAppService.openSystemSettingsLoginItems() }
+                GridRow {
+                    settingLabel(L("퇴근까지 남은 시간 표시", "Countdown display"))
+                    VStack(alignment: .leading, spacing: 5) {
+                        settingExample(GeneralSettingsPreview.countdown(model.countdownDisplay))
+                        Text(L("시간은 0.1시간씩, 다른 단위는 올림합니다. 밀리초는 0.1초마다 갱신합니다.",
+                               "Hours round up in 0.1-hour steps; other units round up. Milliseconds refresh every 0.1 seconds."))
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Picker(L("퇴근까지 남은 시간 표시", "Countdown display"), selection: Binding(
+                        get: { model.countdownDisplay }, set: { model.setCountdownDisplay($0) })) {
+                        ForEach(CountdownDisplay.allCases, id: \.self) { choice in
+                            Text(choice.displayLabel).tag(choice)
+                        }
+                    }.pickerStyle(.menu).labelsHidden()
+                        .accessibilityLabel(L("퇴근까지 남은 시간 표시", "Countdown display"))
+                        .frame(width: 190, alignment: .trailing)
+                }
+                GridRow {
+                    settingLabel(L("메뉴바에 퇴근 예정 시각 표시", "Show expected departure in menu bar"))
+                    VStack(alignment: .leading, spacing: 5) {
+                        settingExample(GeneralSettingsPreview.departure(model.countdownDisplay, shown: model.showDepartureInMenuBar))
+                        Text(L("꺼도 남은 시간과 표시 단위는 유지됩니다.", "The countdown and selected format remain when off."))
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Toggle(L("메뉴바에 퇴근 예정 시각 표시", "Show expected departure in menu bar"), isOn: Binding(
+                        get: { model.showDepartureInMenuBar }, set: { model.setShowDepartureInMenuBar($0) }))
+                        .toggleStyle(.switch).labelsHidden()
+                        .accessibilityLabel(L("메뉴바에 퇴근 예정 시각 표시", "Show expected departure in menu bar"))
+                        .accessibilityIdentifier("settings-departure-switch")
+                }
+                GridRow {
+                    settingLabel(L("로그인 시 자동 실행", "Launch at login"))
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(model.loginDescription).font(.caption).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if model.loginStatus == .requiresApproval {
+                            Button(L("시스템 설정에서 허용", "Allow in System Settings")) { SMAppService.openSystemSettingsLoginItems() }
+                        }
+                    }
+                    Toggle(L("로그인 시 자동 실행", "Launch at login"), isOn: Binding(
+                        get: { model.loginEnabled }, set: { model.setLoginEnabled($0) }))
+                        .toggleStyle(.switch).labelsHidden().disabled(!model.allowsLoginItemChanges)
+                        .accessibilityLabel(L("로그인 시 자동 실행", "Launch at login"))
+                        .accessibilityIdentifier("settings-login-switch")
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(8)
         }
+    }
+
+    private func settingLabel(_ title: String) -> some View {
+        Text(title).fixedSize(horizontal: false, vertical: true)
+            .frame(width: 140, alignment: .leading)
+    }
+
+    private func settingExample(_ value: String) -> some View {
+        Text(value).font(.callout.monospacedDigit())
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityLabel(L("표시 예시", "Display example"))
+            .accessibilityValue(value)
     }
 
     private var historySection: some View {

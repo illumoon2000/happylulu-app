@@ -5,6 +5,16 @@ swift build --build-system native --product HappyLulu >/dev/null
 build_dir="$(swift build --build-system native --show-bin-path)"
 probe_dir="$(mktemp -d "${TMPDIR:-/tmp/}HappyLulu-panel-focus.XXXXXX")"
 trap 'rm -rf "$probe_dir"' EXIT
+app="$probe_dir/PanelFocusProbe.app"
+mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+cp Resources/HappyLuluBrand.png "$app/Contents/Resources/"
+cp -R Resources/OwlStates "$app/Contents/Resources/"
+python3 - "$app/Contents/Info.plist" <<'PY2'
+import pathlib, plistlib, sys
+with pathlib.Path(sys.argv[1]).open('wb') as stream:
+    plistlib.dump(dict(CFBundleIdentifier='test.happylulu.panel-focus-probe',
+        CFBundleExecutable='PanelFocusProbe', CFBundlePackageType='APPL', LSUIElement=True), stream)
+PY2
 # Keep shared appearance initialization isolated while compiling the actual panel and model sources.
 python3 - Sources/AfterSix/AppearanceModel.swift "$probe_dir/AppearanceModel.swift" "$probe_dir" <<'PY'
 import json, pathlib, sys
@@ -31,18 +41,18 @@ swiftc -parse-as-library -swift-version 6 -I "$build_dir/Modules" \
   Sources/AfterSix/DefaultFeatureAdapter.swift Sources/AfterSix/PluginManagerModel.swift \
   Sources/AfterSix/BundledPlugins.swift Sources/AfterSix/PluginSettingsView.swift \
   Sources/AfterSix/FeatureCalendarModel.swift Sources/AfterSix/TodayAgendaView.swift \
-  Sources/AfterSix/TodayDayTypeView.swift Sources/AfterSix/ArrivalClockDigitField.swift \
+  Sources/AfterSix/TodayDayTypeView.swift Sources/AfterSix/ArrivalClockDigitField.swift Sources/AfterSix/LuluBrand.swift \
   "$probe_dir/PanelView.swift" "$probe_dir/AppearanceModel.swift" Tests/PanelFocusProbe/main.swift \
   "$build_dir"/AppPluginCore.build/*.swift.o "$build_dir"/AppPluginHost.build/*.swift.o \
   "$build_dir"/AfterSixCore.build/*.swift.o "$build_dir"/CalendarSyncServices.build/*.swift.o \
   "$build_dir"/CalendarSyncCore.build/*.swift.o \
   -framework AppKit -framework SwiftUI -framework Security -framework EventKit -framework ServiceManagement -lsqlite3 \
-  -o "$probe_dir/check"
+  -o "$app/Contents/MacOS/PanelFocusProbe"
 for time_zone in UTC Asia/Seoul America/Los_Angeles; do
   case "$time_zone" in
     UTC) fixture_time_zone=Asia/Seoul ;;
     Asia/Seoul) fixture_time_zone=America/Los_Angeles ;;
     America/Los_Angeles) fixture_time_zone=UTC ;;
   esac
-  TZ="$time_zone" "$probe_dir/check" "$probe_dir/$time_zone" "$fixture_time_zone"
+  TZ="$time_zone" "$app/Contents/MacOS/PanelFocusProbe" "$probe_dir/$time_zone" "$fixture_time_zone"
 done

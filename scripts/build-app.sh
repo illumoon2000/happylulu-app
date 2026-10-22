@@ -11,6 +11,8 @@ app_dir="$project_dir/dist/HappyLulu.app"
 mkdir -p "$app_dir/Contents/MacOS" "$app_dir/Contents/Resources"
 cp "$binary_dir/HappyLulu" "$app_dir/Contents/MacOS/HappyLulu"
 cp Resources/Info.plist "$app_dir/Contents/Info.plist"
+cp Resources/HappyLuluBrand.png "$app_dir/Contents/Resources/"
+cp -R Resources/OwlStates "$app_dir/Contents/Resources/"
 cp LICENSE THIRD_PARTY_NOTICES.md "$app_dir/Contents/Resources/"
 for language in ko en; do
     mkdir -p "$app_dir/Contents/Resources/$language.lproj"
