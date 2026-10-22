@@ -40,8 +40,13 @@ public final class AIUsageModel: ObservableObject, PluginController, PluginMenuB
                 providerFactory: @escaping @Sendable (Preferences) -> any UsageProvider = {
                     CodexUsageProvider(executablePath: $0.cliPath)
                 }, notificationAuthorization: @escaping @MainActor @Sendable () async -> Bool = {
-                    let status = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
-                    return status == .authorized || status == .provisional
+                    // Keep the non-Sendable settings object inside the system callback.
+                    return await withCheckedContinuation { continuation in
+                        UNUserNotificationCenter.current().getNotificationSettings { @Sendable settings in
+                            let status = settings.authorizationStatus
+                            continuation.resume(returning: status == .authorized || status == .provisional)
+                        }
+                    }
                 }, notificationDelivery: @escaping @MainActor @Sendable (String, String, String) async throws -> Void = { id, title, body in
                     let content = UNMutableNotificationContent(); content.title = title; content.body = body
                     try await UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: id, content: content, trigger: nil))

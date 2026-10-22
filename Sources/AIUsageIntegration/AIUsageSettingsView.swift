@@ -55,7 +55,7 @@ public struct AIUsageSettingsView: View {
                         ForEach([1, 5, 10, 15, 30], id: \.self) { minutes in Text(t("\(minutes)분", "\(minutes) min")).tag(minutes) }
                     }
                     Toggle(t("잔여량 부족 알림", "Low allowance notification"), isOn: Binding(
-                        get: { model.preferences.notificationsEnabled }, set: model.setNotifications)).toggleStyle(.switch)
+                        get: { model.preferences.notificationsEnabled }, set: { model.setNotifications($0) })).toggleStyle(.switch)
                     if model.preferences.notificationsEnabled {
                         Picker(t("알림 기준", "Notify below"), selection: Binding(
                             get: { model.preferences.notificationThreshold }, set: { value in model.updatePreferences { $0.notificationThreshold = value } })) {
