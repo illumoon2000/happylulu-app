@@ -98,6 +98,37 @@ final class AppModel: ObservableObject {
         if detectedModeToday == .afternoonHalf { return .afternoonHalf }
         return earlyLeaveMinutes > 0 ? .luluDay : .regular
     }
+    var isVacationEve: Bool {
+        guard todayDayType != .annualLeave, !isSkipped,
+              let arrival, let departure, now >= departure.addingTimeInterval(-600),
+              let timeZone = featureRouter.timeZone(for: .leave),
+              let snapshot = featureRouter.leaveSnapshot() else { return false }
+        var leaveCalendar = Calendar(identifier: .gregorian)
+        leaveCalendar.timeZone = timeZone
+        // Leave dates belong to their source; do not extend an overnight shift into a leave day.
+        guard leaveCalendar.isDate(arrival.time, inSameDayAs: now),
+              leaveCalendar.isDate(departure, inSameDayAs: now),
+              let tomorrow = leaveCalendar.date(byAdding: .day, value: 1,
+                  to: leaveCalendar.startOfDay(for: now)) else { return false }
+        return snapshot.hasConfirmedFullDayLeave(on: tomorrow, timeZone: timeZone, now: now)
+    }
+    var luluDisplayState: LuluDisplayState {
+        LuluDisplayState.resolve(dayType: effectiveDayType, isSkipped: isSkipped,
+                                 hasArrival: arrival != nil, departure: departure, now: now)
+    }
+    var luluStateLabel: String {
+        let label: String = switch luluDisplayState {
+        case .waiting: L("출근 대기", "Waiting for arrival")
+        case .regular: L("일반 근무", "Regular workday")
+        case .luluDay: L("룰루데이", "Lulu day")
+        case .morningHalf: L("오전 반차", "Morning half-day off")
+        case .afternoonHalf: L("오후 반차", "Afternoon half-day off")
+        case .readyToLeave: L("퇴근 가능 · 예정 시각 경과", "Ready to leave · scheduled time reached")
+        case .annualLeave: L("연차/공가", "Leave day")
+        case .dayOff: L("오늘 쉬는 날", "Day off today")
+        }
+        return isVacationEve ? label + L(" · 내일 연차/공가", " · Leave tomorrow") : label
+    }
     var menuTitle: String {
         if let departure {
             let title = L("퇴근 \(timeLabel(departure))", "Leave \(timeLabel(departure))")
@@ -153,6 +184,8 @@ final class AppModel: ObservableObject {
         featureObservation = manager.$revision.sink { [weak self, weak manager] _ in
             Task { @MainActor [weak self, weak manager] in
                 guard let self, let manager else { return }
+                // A leave-only refresh or source change also updates the character immediately.
+                self.objectWillChange.send()
                 let source = self.featureRouter.selectedID(for: .halfDay)
                 let fetchedAt = manager.registry.snapshot(for: source)?.fetchedAt
                 let detectionChanged = self.observedDetectionEnabled != self.detectionAllowed

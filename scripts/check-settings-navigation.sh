@@ -9,7 +9,9 @@ frameworks="$PWD/.build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm6
 probe_dir="$(mktemp -d "${TMPDIR:-/tmp/}HappyLulu-settings-navigation.XXXXXX")"
 trap 'rm -rf "$probe_dir"' EXIT
 app="$probe_dir/NavigationProbe.app"
-mkdir -p "$app/Contents/MacOS" "$probe_dir/data"
+mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources" "$probe_dir/data"
+cp Resources/HappyLuluBrand.png "$app/Contents/Resources/"
+cp -R Resources/OwlStates "$app/Contents/Resources/"
 python3 - "${HAPPY_LULU_PROBE_APPEARANCE_SOURCE:-Sources/AfterSix/AppearanceModel.swift}" "$probe_dir/AppearanceModel.swift" "$app/Contents/Info.plist" <<'PY'
 import pathlib, plistlib, sys, uuid
 source = pathlib.Path(sys.argv[1]).read_text()
@@ -26,6 +28,7 @@ PY
 swiftc -parse-as-library -swift-version 6 -target "$(uname -m)-apple-macosx13.0" -module-cache-path "$PWD/.build/settings-navigation-module-cache" \
   -I "$build_dir/Modules" -F "$frameworks" -Xlinker -rpath -Xlinker "$frameworks" \
   Sources/AfterSix/AppLanguage.swift Sources/AfterSix/AppModel.swift Sources/AfterSix/AppUpdater.swift \
+  Sources/AfterSix/LuluBrand.swift \
   Sources/AfterSix/CalendarSyncModel.swift Sources/AfterSix/HalfDayCalendarReader.swift \
   Sources/AfterSix/DefaultFeatureAdapter.swift Sources/AfterSix/PluginManagerModel.swift \
   Sources/AfterSix/BundledPlugins.swift Sources/AfterSix/FeatureCalendarModel.swift \

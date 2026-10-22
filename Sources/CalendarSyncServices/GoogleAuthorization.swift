@@ -102,7 +102,7 @@ private final class OAuthLoopbackReceiver {
         } else {
             pendingCallback = values
         }
-        reply(connection, status: "200 OK", message: "HappyLulu received the sign-in response. You can close this window. / HappyLulu 로그인 응답을 받았습니다. 이 창을 닫아도 됩니다.")
+        reply(connection, status: "200 OK", message: "happylulu received the sign-in response. You can close this window. / happylulu 로그인 응답을 받았습니다. 이 창을 닫아도 됩니다.")
     }
 
     private func reply(_ connection: NWConnection, status: String, message: String) {

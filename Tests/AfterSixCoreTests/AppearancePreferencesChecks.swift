@@ -3,7 +3,7 @@ import ImageIO
 import AfterSixCore
 
 func checkAppearancePreferences() throws {
-    expectEqual(AppearancePalette.allCases.count, 5)
+    expectEqual(AppearancePalette.allCases.count, 6)
     expectEqual(AppearanceIcon.allCases.count, 6) // Five bundled choices plus imported image.
     expectEqual(AppearancePalette.softMint.colors[.background], "#E9EFEB")
     expectEqual(AppearancePalette.charcoal.colors[.text], "#E0E7E4")
@@ -22,9 +22,24 @@ func checkAppearancePreferences() throws {
     for invalid in ["FFF", "#FFFF", "#12345678", "#GG0000", "123456", "#１２３４５６"] {
         expectThrows(try AppearancePreferences.normalizedHex(invalid))
     }
+    // Existing raw values, custom colors and icon selections must survive the new default.
+    for raw in ["softMint", "warmStone", "blueGray", "dustyLavender", "charcoal"] {
+        let data = Data(("{\"version\":1,\"palette\":\"" + raw + "\",\"customColors\":{\"accent\":\"#123456\"},\"icon\":\"blue\"}").utf8)
+        let saved = try JSONDecoder().decode(AppearancePreferences.self, from: data)
+        expectEqual(saved.palette.rawValue, raw)
+        expectEqual(saved.colors[.accent], "#123456")
+        expectEqual(saved.icon, .blue)
+        try expectEqual(try JSONDecoder().decode(AppearancePreferences.self, from: JSONEncoder().encode(saved)), saved)
+    }
     var preferences = AppearancePreferences()
+    expectEqual(preferences.palette.rawValue, "offwhiteLilac")
+    expectEqual(preferences.colors[.background], "#FAF9FC")
+    expectEqual(preferences.colors[.sidebar], "#EEE8F8")
+    expectEqual(preferences.colors[.surface], "#FFFFFF")
+    expectEqual(preferences.colors[.accent], "#7054B3")
+    expectEqual(preferences.colors[.text], "#2F2B3D")
     expectTrue(preferences.contrastRatio > 4.5)
-    try preferences.setColor("#E9EFEB", for: .text)
+    try preferences.setColor("#FAF9FC", for: .text)
     expectTrue(preferences.contrastRatio < 1.01)
     let beforeInvalid = preferences
     expectThrows(try preferences.setColor("red", for: .text))
@@ -122,5 +137,5 @@ func checkAppearancePreferences() throws {
     let unwritable = AppearanceStore(rootDirectory: blockedRoot, bundleIdentifier: "test")
     expectThrows(try unwritable.save(AppearancePreferences()))
     expectTrue(FileManager.default.fileExists(atPath: blockedRoot.path))
-    print("PASS appearance: five palettes, HEX/contrast, independent icons, atomic isolated persistence, corrupt/read-only, validated image references and write failures")
+    print("PASS appearance: six palettes, legacy persistence, HEX/contrast, independent icons, atomic isolated persistence, corrupt/read-only, validated image references and write failures")
 }

@@ -39,7 +39,7 @@ struct CalendarSyncSettingsView: View {
     private var accountSetup: some View {
         GroupBox(L("1. 계정 연결", "1. Connect accounts")) {
             VStack(alignment: .leading, spacing: 12) {
-                Text(L("로그인은 macOS 인터넷 계정에서 처리합니다. HappyLulu는 Google 또는 다우오피스 비밀번호를 받지 않아요.", "Sign in through macOS Internet Accounts. HappyLulu does not collect your Google or Daouoffice password."))
+                Text(L("로그인은 macOS 인터넷 계정에서 처리합니다. happylulu는 Google 또는 다우오피스 비밀번호를 받지 않아요.", "Sign in through macOS Internet Accounts. happylulu does not collect your Google or Daouoffice password."))
                     .font(.subheadline)
                 HStack {
                     Button(L("인터넷 계정 열기", "Open Internet Accounts")) { model.openInternetAccounts() }
@@ -313,7 +313,7 @@ struct CalendarSyncSettingsView: View {
         case "alarmAudio": L("사용자 지정 소리 알림은 현재 지원하지 않습니다.", "Custom audio alarms are unsupported.")
         case "alarmLocation": L("위치 기반 알림은 현재 지원하지 않습니다.", "Location alarms are unsupported.")
         case "alarmProcedure", "alarmInvalidTrigger": L("이 알림 형식을 안전하게 옮길 수 없습니다.", "This alarm type cannot be safely copied.")
-        case "managedRecurringSeries": L("HappyLulu 복사본을 반복 일정으로 바꾼 경우 연결을 확인해야 합니다.", "A mirrored event was converted into a recurring series; review its matching.")
+        case "managedRecurringSeries": L("happylulu 복사본을 반복 일정으로 바꾼 경우 연결을 확인해야 합니다.", "A mirrored event was converted into a recurring series; review its matching.")
         case "missingOccurrenceDate", "ambiguousOccurrence": L("반복 회차를 하나로 확인할 수 없어 보류했습니다.", "The recurring occurrence could not be identified uniquely.")
         case "recurring": L("이전 버전의 반복 일정 기록입니다. 새 미리보기로 다시 확인해 주세요.", "This is a legacy recurring-event record. Refresh the preview.")
         case "existingURL": L("기존 일정 URL과 중복 방지 표시를 함께 보존할 수 없어 보류했습니다.", "The existing URL and duplicate-prevention marker cannot both be preserved.")
