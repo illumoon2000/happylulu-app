@@ -44,6 +44,7 @@ swiftc -parse-as-library -swift-version 6 -I "$build_dir/Modules" \
   Sources/AfterSix/TodayDayTypeView.swift Sources/AfterSix/ArrivalClockDigitField.swift Sources/AfterSix/LuluBrand.swift \
   "$probe_dir/PanelView.swift" "$probe_dir/AppearanceModel.swift" Tests/PanelFocusProbe/main.swift \
   "$build_dir"/AppPluginCore.build/*.swift.o "$build_dir"/AppPluginHost.build/*.swift.o \
+  "$build_dir"/CPURunnerIntegration.build/*.swift.o \
   "$build_dir"/AfterSixCore.build/*.swift.o "$build_dir"/CalendarSyncServices.build/*.swift.o \
   "$build_dir"/CalendarSyncCore.build/*.swift.o \
   -framework AppKit -framework SwiftUI -framework Security -framework EventKit -framework ServiceManagement -lsqlite3 \

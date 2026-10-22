@@ -43,6 +43,7 @@ swiftc -parse-as-library -swift-version 6 -target "$(uname -m)-apple-macosx13.0"
   -I "$build_dir/Modules" -F "$frameworks" -Xlinker -rpath -Xlinker "$frameworks" \
   "${sources[@]}" "$probe_dir/AppearanceModel.swift" "$probe_dir/TodayDayTypeView.swift" Tests/DesignRenderProbe/main.swift \
   "$build_dir"/AppPluginCore.build/*.swift.o "$build_dir"/AppPluginHost.build/*.swift.o \
+  "$build_dir"/CPURunnerIntegration.build/*.swift.o \
   "$build_dir"/AfterSixCore.build/*.swift.o "$build_dir"/CalendarSyncServices.build/*.swift.o \
   "$build_dir"/CalendarSyncCore.build/*.swift.o \
   -framework AppKit -framework SwiftUI -framework CoreImage -framework Security \

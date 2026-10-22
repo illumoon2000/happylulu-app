@@ -27,6 +27,7 @@ HappyLulu는 **공통 `main` 하나**를 개발 기준으로 사용합니다. Ma
 | 캘린더 일정으로 오전·오후 반차 인식 | 개발 완료 | 개발 계획 없음 | Mac은 권한 허용 후 일정 제목을 읽고 수동 선택을 우선합니다. 실제 권한·일정 판별은 [#4](https://github.com/young221718/happylulu-app/issues/4)에서 확인합니다. Windows는 시간대 판별과 수동 반차 선택만 지원합니다. |
 | 다우오피스·Google 캘린더 동기화 | 개발 중 | 개발 계획 없음 | Mac에 연결·미리보기·양방향 추가/수정·충돌·중단 후 재개 처리가 있습니다. 실제 서버 왕복·예약 실행·업데이트 후 권한 유지 검증이 남았습니다([#4](https://github.com/young221718/happylulu-app/issues/4), [#17](https://github.com/young221718/happylulu-app/issues/17), [#3](https://github.com/young221718/happylulu-app/issues/3)). Windows에는 연결과 동기화가 없습니다. |
 | 다우오피스 휴가·일정 조회 플러그인 | 개발 완료 | 개발 계획 없음 | Mac 1.5.14 build30에 공개했습니다. 다중 플러그인 등록·기능별 어댑터 연결·기본 어댑터·설정 화면 분리와 모의 통합 회귀 검사가 있습니다. 실제 계정·회사 구성별 호환과 이번 후보의 설치 검증은 별도입니다. [플러그인 안내](PLUGINS.md). |
+| CPU 러너 동물 선택 플러그인 | 개발 중 | 개발 계획 없음 | 2026-10-22 로컬 후보에 햄스터·토끼·고양이 3종 선택, CPU 속도 연동, 별도 메뉴바 항목을 구현합니다. 기존 부엉이는 유지합니다. main·공개 릴리즈 미포함이며 Windows 트레이 구현은 이번 범위 밖입니다. [후보 안내·검증 범위](CPU-RUNNER.md). |
 | 앱 자체 자동 업데이트 | 개발 중 | 개발 계획 없음 | Mac은 Sparkle 기반이며 고정 코드 서명·업데이트 서명·격리 설치와 재실행 검사를 통과했습니다. 1.5.11 build27의 이 Mac 교체·재실행·기록/권한 보존과 공개 피드를 확인했습니다. 외부 Mac과 종전 Site 피드의 자동 이전은 남았습니다([#3](https://github.com/young221718/happylulu-app/issues/3)). Windows는 앱 종료 후 파일을 직접 교체합니다. |
 
 공통 실기기 확인은 [Mac #4](https://github.com/young221718/happylulu-app/issues/4)·[Windows #7](https://github.com/young221718/happylulu-app/issues/7)에서 추적합니다. 한쪽만 완료한 기능을 양 플랫폼 공통 기능의 완료로 처리하지 않습니다.

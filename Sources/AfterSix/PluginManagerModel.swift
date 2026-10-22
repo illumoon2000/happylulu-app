@@ -84,6 +84,7 @@ final class PluginManagerModel: ObservableObject {
     func isEnabled(_ id: String) -> Bool { catalogState.installed[id] == true }
     private let routingStore: FeatureRoutingStore
     private var subscriptions: [String: AnyCancellable] = [:]
+    private var usageModuleIDs: [String] = []
     private var started = false
     private var savedRoutes: [AppFeature: String] = [:]
     private var writable = true
@@ -120,8 +121,17 @@ final class PluginManagerModel: ObservableObject {
                 available: modules.contains { $0.id == "daouoffice" }),
             PluginCatalogEntry(id: "leave-detection", name: L("휴가 자동 인식", "Leave recognition"), author: PluginAuthors.contributors,
                 summary: L("연결된 일정의 오전·오후 반차 인식", "Morning/afternoon half-day recognition from connected calendars"),
-                symbol: "leaf", available: true)
+                symbol: "leaf", available: true),
+            PluginCatalogEntry(id: "cpu-runner", name: L("CPU 러너", "CPU Runner"), author: PluginAuthors.contributors,
+                summary: L("CPU 사용량에 맞춰 달리는 햄스터·토끼·고양이", "A hamster, rabbit or cat that runs with CPU activity"),
+                symbol: "pawprint", available: modules.contains { $0.id == "cpu-runner" })
         ]
+        usageModuleIDs = modules.filter { $0.catalogMetadata?.providesUsage == true }.map { $0.id }
+        for module in modules {
+            guard let metadata = module.catalogMetadata, !catalog.contains(where: { $0.id == module.id }) else { continue }
+            catalog.append(PluginCatalogEntry(id: module.id, name: L(metadata.name, metadata.englishName), author: metadata.author,
+                summary: L(metadata.summary, metadata.englishSummary), symbol: metadata.symbol, available: true))
+        }
         factories["mac-calendar"] = { [weak self, weak sync] in
             guard let self, let sync else { return }
             let controller = LocalPluginController(id: "mac-calendar", name: L("캘린더", "Calendar")) { [weak sync] active in
@@ -273,6 +283,26 @@ final class PluginManagerModel: ObservableObject {
             persistRoutes()
         }
         revision += 1
+    }
+    var canShowUsage: Bool { catalogWritable && externalIntegrationsAllowed && !usageModuleIDs.isEmpty }
+    var showUsage: Bool { usageModuleIDs.contains(where: { isEnabled($0) }) }
+    var usagePluginID: String? { usageModuleIDs.first(where: { isEnabled($0) }) ?? usageModuleIDs.first }
+    func setShowUsage(_ show: Bool) {
+        guard canShowUsage else { return }
+        if show {
+            guard let id = usagePluginID else { return }
+            if !isInstalled(id) { install(id) }
+            if isInstalled(id) { setEnabled(id, true) }
+        } else {
+            for id in usageModuleIDs where isEnabled(id) { setEnabled(id, false) }
+        }
+    }
+    var menuBarItems: [PluginMenuBarItem] {
+        guard externalIntegrationsAllowed else { return [] }
+        return registrations.compactMap { entry in
+            guard isEnabled(entry.id), entry.controller.enabled else { return nil }
+            return (entry.controller as? any PluginMenuBarProviding)?.menuBarItem
+        }
     }
     func start() {
         guard !started else { return }; started = true

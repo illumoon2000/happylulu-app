@@ -14,10 +14,62 @@ private func pump(_ host: NSView) {
     host.layoutSubtreeIfNeeded()
 }
 
+@MainActor
+private final class TerminationProbe: NSObject, NSApplicationDelegate {
+    var requests = 0
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        requests += 1
+        return .terminateCancel
+    }
+}
+
+@MainActor
+private final class MenuTrackingProbe: NSObject {
+    var menu: NSMenu?
+    @objc func didBeginTracking(_ notification: Notification) {
+        menu = notification.object as? NSMenu
+        DispatchQueue.main.async {
+            if let output = ProcessInfo.processInfo.environment["HAPPY_LULU_PANEL_CAPTURE_OUTPUT"] {
+                do {
+                    let directory = URL(fileURLWithPath: output, isDirectory: true)
+                    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+                    for (index, window) in NSApplication.shared.windows.enumerated() where window.isVisible {
+                        guard let view = window.contentView, let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { continue }
+                        view.cacheDisplay(in: view.bounds, to: bitmap)
+                        let filename = "panel-more-\(AppLanguage.shared.choice.rawValue)-\(index)-\(String(describing: type(of: window))).png"
+                        try bitmap.representation(using: .png, properties: [:])!.write(to: directory.appendingPathComponent(filename))
+                    }
+                } catch { preconditionFailure("Could not capture isolated menu: \(error)") }
+            }
+            self.menu?.cancelTracking()
+        }
+    }
+}
+
+@MainActor
+private func openHeaderMenu(in host: NSView, window: NSWindow, at point: NSPoint = NSPoint(x: 334, y: 30)) -> NSMenu? {
+    let observation = MenuTrackingProbe()
+    NotificationCenter.default.addObserver(observation, selector: #selector(MenuTrackingProbe.didBeginTracking(_:)),
+                                           name: NSMenu.didBeginTrackingNotification, object: nil)
+    defer { NotificationCenter.default.removeObserver(observation) }
+    let location = host.convert(point, to: nil)
+    for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+        let event = NSEvent.mouseEvent(with: type, location: location, modifierFlags: [],
+            timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+            context: nil, eventNumber: 0, clickCount: 1, pressure: type == .leftMouseDown ? 1 : 0)!
+        window.sendEvent(event)
+    }
+    pump(host)
+    return observation.menu
+}
+
 @main
 struct PanelFocusProbe {
     @MainActor static func main() throws {
         _ = NSApplication.shared
+        let identity = Bundle.main.bundleIdentifier!
+        precondition(identity == "test.happylulu.panel-focus-probe")
+        defer { UserDefaults.standard.removePersistentDomain(forName: identity) }
         let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
         let timeZone = TimeZone(identifier: CommandLine.arguments[2])!
         var calendar = Calendar(identifier: .gregorian)
@@ -45,7 +97,9 @@ struct PanelFocusProbe {
         model.refresh()
         precondition(model.now == fixtureNow && model.dayKey(model.now) == "2026-10-16")
         let sync = CalendarSyncModel(runtimeAllowed: false, storeURL: root.appendingPathComponent("sync.sqlite"))
-        let panel = PanelView(model: model, calendarSync: sync, plugins: manager, onOpenHistory: {}, onOpenSettings: {})
+        var settingsOpens = 0
+        let panel = PanelView(model: model, calendarSync: sync, plugins: manager,
+                              onOpenHistory: {}, onOpenSettings: { settingsOpens += 1 })
         let host = NSHostingView(rootView: panel)
         let window = NSWindow(contentRect: NSRect(x: -10000, y: -10000, width: 364, height: 350),
                               styleMask: [.titled], backing: .buffered, defer: false)
@@ -102,6 +156,48 @@ struct PanelFocusProbe {
                      attributes[.modificationDate] as? Date == repeated[.modificationDate] as? Date,
                      "Repeated outside click saved the same draft again")
         withExtendedLifetime(observation) {}
+        let beforeMenus = try Data(contentsOf: store.url)
+        for point in [NSPoint(x: 321, y: 17), NSPoint(x: 347, y: 43)] {
+            precondition(openHeaderMenu(in: host, window: window, at: point) != nil,
+                         "More menu must preserve the full 28-point header hit target")
+        }
+        for (language, titles) in [(LanguageChoice.english, ["Settings", "Quit"]), (.korean, ["설정", "종료"])] {
+            AppLanguage.shared.select(language)
+            pump(host)
+            let opensBeforeMenu = settingsOpens
+            let menu = openHeaderMenu(in: host, window: window)
+            precondition(settingsOpens == opensBeforeMenu,
+                         "Header control opened Settings directly instead of presenting the more menu")
+            precondition(menu != nil, "Header control did not open a native menu")
+            let items = menu!.items.filter { !$0.isSeparatorItem }
+            precondition(items.map(\.title) == titles, "More menu must expose localized Settings and Quit only")
+            menu!.performActionForItem(at: menu!.index(of: items[0]))
+            pump(host)
+            precondition(settingsOpens == opensBeforeMenu + 1, "Settings menu item did not use the panel callback")
+            let termination = TerminationProbe()
+            NSApplication.shared.delegate = termination
+            menu!.performActionForItem(at: menu!.index(of: items[1]))
+            pump(host)
+            precondition(termination.requests == 1, "Quit menu item did not request graceful application termination")
+            NSApplication.shared.delegate = nil
+        }
+        let image = host.bitmapImageRepForCachingDisplay(in: host.bounds)!
+        host.cacheDisplay(in: host.bounds, to: image)
+        func color(_ x: CGFloat, _ y: CGFloat) -> NSColor {
+            image.colorAt(x: Int(x * CGFloat(image.pixelsWide) / host.bounds.width),
+                          y: Int(y * CGFloat(image.pixelsHigh) / host.bounds.height))!.usingColorSpace(.deviceRGB)!
+        }
+        let background = color(310, 22)
+        for x in [CGFloat(324), 334, 344] {
+            let buttonBackground = color(x, 22)
+            precondition(abs(buttonBackground.redComponent - background.redComponent) < 0.03 &&
+                         abs(buttonBackground.greenComponent - background.greenComponent) < 0.03 &&
+                         abs(buttonBackground.blueComponent - background.blueComponent) < 0.03,
+                         "More menu trigger must preserve the transparent header background")
+        }
+        let afterMenus = try Data(contentsOf: store.url)
+        precondition(afterMenus == beforeMenus, "Menu changed attendance")
+        print("PASS real PanelView more menu: 28-point transparent trigger, Korean/English Settings/Quit, Settings callback, graceful Quit cancelled by isolated probe delegate")
         print("PASS real PanelView focus [host \(ProcessInfo.processInfo.environment["TZ"] ?? "default"), fixture \(timeZone.identifier)]: fixed Friday 16:00, 07:59/08:11 future guards, actual first-digit typing, internal move/pause, production Tab/pause, no intermediate writes, outside click closes and persists once")
     }
 }

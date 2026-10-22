@@ -17,18 +17,20 @@ struct PanelView: View {
     @PanelState private var focusedDigit: Int?
     @PanelState private var saveGeneration = 0
     @PanelState private var selectingType = false
-    @FocusState private var settingsFocused: Bool
+    @FocusState private var moreMenuFocused: Bool
     let onOpenHistory: () -> Void
     let onOpenSettings: () -> Void
     let onOpenCalendar: () -> Void
+    let onOpenPlugin: (String) -> Void
     private var accent: Color { appearance.accent }
 
     init(model: AppModel, calendarSync: CalendarSyncModel, plugins: PluginManagerModel,
          onOpenHistory: @escaping () -> Void, onOpenSettings: @escaping () -> Void,
-         onOpenCalendar: (() -> Void)? = nil) {
+         onOpenCalendar: (() -> Void)? = nil, onOpenPlugin: ((String) -> Void)? = nil) {
         self.model = model; self.calendarSync = calendarSync; self.plugins = plugins
         self.onOpenHistory = onOpenHistory; self.onOpenSettings = onOpenSettings
         self.onOpenCalendar = onOpenCalendar ?? onOpenSettings
+        self.onOpenPlugin = onOpenPlugin ?? { _ in onOpenSettings() }
         _agenda = StateObject(wrappedValue: FeatureCalendarModel(router: plugins.router))
     }
 
@@ -40,7 +42,7 @@ struct PanelView: View {
                     .accessibilityLabel("happylulu, \(model.luluStateLabel)")
                 Text("happylulu").font(.system(size: 16, weight: .semibold))
                 Spacer()
-                settingsButton
+                moreMenu
             }
             VStack(alignment: .leading, spacing: 4) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -88,10 +90,19 @@ struct PanelView: View {
             .padding(10).frame(maxWidth: .infinity, minHeight: 156, maxHeight: 156, alignment: .topLeading)
             .background(appearance.surface, in: RoundedRectangle(cornerRadius: 12))
             Divider()
+            ForEach(plugins.menuBarItems) { item in
+                Button { onOpenPlugin(item.id) } label: {
+                    HStack {
+                        Text(item.title).monospacedDigit()
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.caption)
+                    }.frame(height: 28).contentShape(Rectangle())
+                }.buttonStyle(.plain).accessibilityLabel(item.accessibilityLabel)
+            }
             TodayAgendaView(model: agenda, plugins: plugins, sync: calendarSync,
                             now: model.now, onOpenCalendar: onOpenCalendar)
         }
-        .padding(16).frame(width: 364, height: 350, alignment: .topLeading)
+        .padding(16).frame(width: 364, height: CGFloat(350 + 40 * plugins.menuBarItems.count), alignment: .topLeading)
         .tint(accent)
         .foregroundStyle(appearance.text)
         .background(appearance.background)
@@ -106,18 +117,24 @@ struct PanelView: View {
         .onDisappear { if editing { _ = saveClock() } }
     }
 
-    @ViewBuilder private var settingsButton: some View {
-        let button = Button(action: onOpenSettings) {
-            Image(systemName: "gearshape").font(.system(size: 16))
+    @ViewBuilder private var moreMenu: some View {
+        let menu = Menu {
+            Button(L("설정", "Settings"), action: onOpenSettings)
+            Button(L("종료", "Quit")) { NSApplication.shared.terminate(nil) }
+        } label: {
+            Image(systemName: "ellipsis").font(.system(size: 16))
         }
-        .buttonStyle(PanelSettingsButtonStyle(accent: accent, isFocused: settingsFocused))
-        .focused($settingsFocused)
-        .accessibilityLabel(L("설정", "Settings"))
+        .menuStyle(.button)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .buttonStyle(PanelMenuButtonStyle(accent: accent, isFocused: moreMenuFocused))
+        .focused($moreMenuFocused)
+        .accessibilityLabel(L("더 보기", "More"))
         if #available(macOS 14, *) {
             // Replace the system focus fill while retaining keyboard focus and activation.
-            button.focusEffectDisabled()
+            menu.focusEffectDisabled()
         } else {
-            button
+            menu
         }
     }
 
@@ -209,7 +226,7 @@ struct PanelView: View {
     }
 }
 
-struct PanelSettingsButtonStyle: ButtonStyle {
+struct PanelMenuButtonStyle: ButtonStyle {
     let accent: Color
     let isFocused: Bool
 

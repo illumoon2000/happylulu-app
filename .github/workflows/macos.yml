@@ -60,6 +60,9 @@ jobs:
           swift run --build-system native CalendarSyncServiceChecks
       - name: Check isolated calendar and updater integration
         run: |
+          swift run --build-system native CPURunnerChecks
+          bash scripts/check-daouoffice-write.sh
+          bash scripts/check-runner-artwork.sh
           bash scripts/check-calendar-model.sh
           bash scripts/check-calendar-diagnostics.sh
           bash scripts/check-calendar-runtime.sh
@@ -81,6 +84,14 @@ jobs:
             bash scripts/check-edit-menu.sh
           else
             echo 'Daouoffice module is excluded; common app checks still run.'
+          fi
+      - name: Check optional AI usage integration
+        run: |
+          if [[ "${HAPPY_LULU_DISABLE_AI_USAGE:-}" != "1" && -d Sources/AIUsagePlugin && -d Sources/AIUsageIntegration ]]; then
+            swift test --build-system native --filter AIUsageTests
+            bash scripts/check-ai-usage-ui.sh
+          else
+            echo 'AI usage module is excluded; common app checks still run.'
           fi
       - name: Package and verify Universal app without private keys
         run: |

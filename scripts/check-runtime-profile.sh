@@ -1,7 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
-swift build --build-system native --product HappyLulu >/dev/null
+swift --version
+xcrun --show-sdk-version
+swift build --build-system native --product HappyLulu
 build_dir="$(swift build --build-system native --show-bin-path)"
 python3 - "$build_dir" <<'PY'
 import os, pathlib, plistlib, shutil, subprocess, sys, tempfile
