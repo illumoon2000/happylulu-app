@@ -33,6 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var settingsWindow: NSWindow?
     private var observation: AnyCancellable?
     private var languageObservation: AnyCancellable?
+    private var pluginObservation: AnyCancellable?
 
     private var loginObservedAt: Date?
 
@@ -65,8 +66,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             self?.openSettings()
         }, onOpenCalendar: { [weak self] in
             self?.openSettings(section: .calendar)
+        }, onOpenPlugin: { [weak self] id in
+            self?.settingsNavigation.pluginID = id
+            self?.openSettings(section: .plugin)
         }))
         observation = model.objectWillChange.sink { [weak self] _ in
+            Task { @MainActor in self?.updateTitle() }
+        }
+        pluginObservation = plugins.objectWillChange.sink { [weak self] _ in
             Task { @MainActor in self?.updateTitle() }
         }
         languageObservation = AppLanguage.shared.$choice.sink { [weak self] _ in
@@ -108,7 +115,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func updateTitle() {
-        statusItem.button?.title = " " + model.menuTitle
+        let items = plugins.menuBarItems
+        let menuTitle = ([model.menuTitle] + items.map(\.title)).joined(separator: " · ")
+        statusItem.button?.title = " " + menuTitle
+        popover.contentSize = NSSize(width: 364, height: 350 + 40 * items.count)
         var toolTip = model.departure.map { L("출근 \(model.timeLabel(model.arrival!.time)) · 퇴근 예정 \(model.timeLabel($0))", "Arrived \(model.timeLabel(model.arrival!.time)) · expected departure \(model.timeLabel($0))") }
             ?? L("HappyLulu · 일반 06:00~10:00(08시 이전은 08시 기록), 오전 반차 13:00~15:00 로그인·잠금 해제를 기다립니다", "HappyLulu · waiting for login/unlock: regular 06:00–10:00 (before 08:00 recorded at 08:00), morning off 13:00–15:00")
         if let extra = model.postDepartureStatus {
@@ -116,8 +126,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             toolTip += " · " + L("예정 시각 기준, 실제 근무·지급 미확인",
                                    "Scheduled time only; work and payment unverified")
         }
+        if !items.isEmpty { toolTip += " · " + items.map(\.accessibilityLabel).joined(separator: " · ") }
         statusItem.button?.toolTip = toolTip
-        statusItem.button?.setAccessibilityLabel("HappyLulu, \(model.menuTitle)")
+        let accessibleTitle = ([model.menuTitle] + items.map(\.accessibilityLabel)).joined(separator: " · ")
+        statusItem.button?.setAccessibilityLabel("HappyLulu, \(accessibleTitle)")
     }
 
     @objc func togglePanel() {

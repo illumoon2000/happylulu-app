@@ -205,7 +205,11 @@ struct SettingsView: View {
                     } else {
                         if let settings = pluginPresentations.view(for: id) { settings }
                         else { Text(L("이 플러그인은 별도 설정이 없습니다.", "This plugin has no additional settings.")) }
-                        FeatureSourceSettingsView(model: plugins, features: [.calendar, .leave])
+                        if let registration = plugins.registrations.first(where: { $0.id == id }),
+                           !registration.adapter.descriptor.features.isEmpty {
+                            FeatureSourceSettingsView(model: plugins,
+                                features: [.calendar, .leave].filter { registration.adapter.descriptor.features.contains($0) })
+                        }
                     }
                 } else {
                     Text(L("사용 안 함 · 연결 설정과 기록은 보존됩니다.", "Off · connection settings and records are preserved."))
@@ -234,6 +238,8 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.menu)
+                Divider()
+                Text(L("표시 옵션", "Display options")).font(.headline)
                 Picker(L("퇴근까지 남은 시간 표시", "Countdown display"), selection: Binding(
                     get: { model.countdownDisplay }, set: { model.setCountdownDisplay($0) })) {
                     ForEach(CountdownDisplay.allCases, id: \.self) { choice in
@@ -248,6 +254,14 @@ struct SettingsView: View {
                     .toggleStyle(.switch)
                 Text(L("꺼도 남은 시간과 선택한 표시 단위는 유지됩니다.", "The countdown and selected time format remain when turned off."))
                     .font(.caption).foregroundStyle(.secondary)
+                Toggle(L("사용량 보기", "Show usage"), isOn: Binding(
+                    get: { plugins.showUsage }, set: { plugins.setShowUsage($0) }))
+                    .toggleStyle(.switch).disabled(!plugins.canShowUsage)
+                if plugins.showUsage, let id = plugins.usagePluginID {
+                    Button(L("사용량 설정", "Usage settings")) {
+                        navigation.pluginID = id; navigation.selection = .plugin
+                    }
+                }
                 Toggle(L("로그인 시 자동 실행", "Launch at login"), isOn: Binding(
                     get: { model.loginEnabled }, set: { model.setLoginEnabled($0) }))
                     .toggleStyle(.switch).disabled(!model.allowsLoginItemChanges)

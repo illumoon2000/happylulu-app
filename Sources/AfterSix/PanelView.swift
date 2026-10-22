@@ -20,14 +20,16 @@ struct PanelView: View {
     let onOpenHistory: () -> Void
     let onOpenSettings: () -> Void
     let onOpenCalendar: () -> Void
+    let onOpenPlugin: (String) -> Void
     private var accent: Color { appearance.accent }
 
     init(model: AppModel, calendarSync: CalendarSyncModel, plugins: PluginManagerModel,
          onOpenHistory: @escaping () -> Void, onOpenSettings: @escaping () -> Void,
-         onOpenCalendar: (() -> Void)? = nil) {
+         onOpenCalendar: (() -> Void)? = nil, onOpenPlugin: ((String) -> Void)? = nil) {
         self.model = model; self.calendarSync = calendarSync; self.plugins = plugins
         self.onOpenHistory = onOpenHistory; self.onOpenSettings = onOpenSettings
         self.onOpenCalendar = onOpenCalendar ?? onOpenSettings
+        self.onOpenPlugin = onOpenPlugin ?? { _ in onOpenSettings() }
         _agenda = StateObject(wrappedValue: FeatureCalendarModel(router: plugins.router))
     }
 
@@ -79,10 +81,19 @@ struct PanelView: View {
             .padding(12).frame(maxWidth: .infinity, minHeight: 156, maxHeight: 156, alignment: .topLeading)
             .background(appearance.surface, in: RoundedRectangle(cornerRadius: 12))
             Divider()
+            ForEach(plugins.menuBarItems) { item in
+                Button { onOpenPlugin(item.id) } label: {
+                    HStack {
+                        Text(item.title).monospacedDigit()
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.caption)
+                    }.frame(height: 28).contentShape(Rectangle())
+                }.buttonStyle(.plain).accessibilityLabel(item.accessibilityLabel)
+            }
             TodayAgendaView(model: agenda, plugins: plugins, sync: calendarSync,
                             now: model.now, onOpenCalendar: onOpenCalendar)
         }
-        .padding(16).frame(width: 364, height: 350, alignment: .topLeading)
+        .padding(16).frame(width: 364, height: CGFloat(350 + 40 * plugins.menuBarItems.count), alignment: .topLeading)
         .tint(accent)
         .foregroundStyle(appearance.text)
         .background(appearance.background)

@@ -3,15 +3,22 @@ import AppPluginHost
 import DaouOfficeIntegration
 #endif
 
+#if HAPPY_LULU_AI_USAGE_ENABLED && canImport(AIUsageIntegration)
+import AIUsageIntegration
+#endif
+
 /// The only composition boundary that knows which optional modules ship in this build.
 @MainActor
 enum BundledPlugins {
     static var modules: [any PluginModule.Type] {
+        var result: [any PluginModule.Type] = []
         #if HAPPY_LULU_DAOUOFFICE_ENABLED && canImport(DaouOfficeIntegration)
-        [DaouOfficeModule.self]
-        #else
-        []
+        result.append(DaouOfficeModule.self)
         #endif
+        #if HAPPY_LULU_AI_USAGE_ENABLED && canImport(AIUsageIntegration)
+        result.append(AIUsageModule.self)
+        #endif
+        return result
     }
     static func legacyDaouConfigured() throws -> Bool {
         #if HAPPY_LULU_DAOUOFFICE_ENABLED && canImport(DaouOfficeIntegration)
