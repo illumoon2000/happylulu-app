@@ -1,3 +1,4 @@
+import AppPluginCore
 import AppPluginHost
 import SwiftUI
 import ServiceManagement
@@ -226,10 +227,10 @@ struct SettingsView: View {
                     } else {
                         if let settings = pluginPresentations.view(for: id) { settings }
                         else { Text(L("이 플러그인은 별도 설정이 없습니다.", "This plugin has no additional settings.")) }
-                        if let registration = plugins.registrations.first(where: { $0.id == id }),
-                           !registration.adapter.descriptor.features.isEmpty {
-                            FeatureSourceSettingsView(model: plugins,
-                                features: [.calendar, .leave].filter { registration.adapter.descriptor.features.contains($0) })
+                        let supported = plugins.registrations.first(where: { $0.id == id })?.adapter.descriptor.features ?? []
+                        let routedFeatures = [AppFeature.calendar, .leave].filter { supported.contains($0) }
+                        if !routedFeatures.isEmpty {
+                            FeatureSourceSettingsView(model: plugins, features: routedFeatures)
                         }
                     }
                 } else {

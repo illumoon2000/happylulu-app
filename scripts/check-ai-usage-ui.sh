@@ -43,6 +43,7 @@ swiftc -parse-as-library -swift-version 6 -target "$(uname -m)-apple-macosx13.0"
   "$build_dir"/AfterSixCore.build/*.swift.o "$build_dir"/CalendarSyncServices.build/*.swift.o \
   "$build_dir"/CalendarSyncCore.build/*.swift.o "$build_dir"/AIUsagePlugin.build/*.swift.o \
   "$build_dir"/AIUsageIntegration.build/*.swift.o \
+  "$build_dir"/CPURunnerIntegration.build/*.swift.o \
   -framework AppKit -framework SwiftUI -framework CoreImage -framework Security \
   -framework EventKit -framework ServiceManagement -framework UserNotifications -framework Sparkle -lsqlite3 \
   -o "$app/Contents/MacOS/UsageProbe"

@@ -1,4 +1,5 @@
 import AppPluginHost
+import CPURunnerIntegration
 #if HAPPY_LULU_DAOUOFFICE_ENABLED && canImport(DaouOfficeIntegration)
 import DaouOfficeIntegration
 #endif
@@ -11,7 +12,7 @@ import AIUsageIntegration
 @MainActor
 enum BundledPlugins {
     static var modules: [any PluginModule.Type] {
-        var result: [any PluginModule.Type] = []
+        var result: [any PluginModule.Type] = [CPURunnerModule.self]
         #if HAPPY_LULU_DAOUOFFICE_ENABLED && canImport(DaouOfficeIntegration)
         result.append(DaouOfficeModule.self)
         #endif
