@@ -17,7 +17,7 @@ struct PanelView: View {
     @PanelState private var focusedDigit: Int?
     @PanelState private var saveGeneration = 0
     @PanelState private var selectingType = false
-    @FocusState private var settingsFocused: Bool
+    @FocusState private var moreMenuFocused: Bool
     let onOpenHistory: () -> Void
     let onOpenSettings: () -> Void
     let onOpenCalendar: () -> Void
@@ -42,7 +42,7 @@ struct PanelView: View {
                     .accessibilityLabel("happylulu, \(model.luluStateLabel)")
                 Text("happylulu").font(.system(size: 16, weight: .semibold))
                 Spacer()
-                settingsButton
+                moreMenu
             }
             VStack(alignment: .leading, spacing: 4) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -117,18 +117,24 @@ struct PanelView: View {
         .onDisappear { if editing { _ = saveClock() } }
     }
 
-    @ViewBuilder private var settingsButton: some View {
-        let button = Button(action: onOpenSettings) {
-            Image(systemName: "gearshape").font(.system(size: 16))
+    @ViewBuilder private var moreMenu: some View {
+        let menu = Menu {
+            Button(L("설정", "Settings"), action: onOpenSettings)
+            Button(L("종료", "Quit")) { NSApplication.shared.terminate(nil) }
+        } label: {
+            Image(systemName: "ellipsis").font(.system(size: 16))
         }
-        .buttonStyle(PanelSettingsButtonStyle(accent: accent, isFocused: settingsFocused))
-        .focused($settingsFocused)
-        .accessibilityLabel(L("설정", "Settings"))
+        .menuStyle(.button)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .buttonStyle(PanelMenuButtonStyle(accent: accent, isFocused: moreMenuFocused))
+        .focused($moreMenuFocused)
+        .accessibilityLabel(L("더 보기", "More"))
         if #available(macOS 14, *) {
             // Replace the system focus fill while retaining keyboard focus and activation.
-            button.focusEffectDisabled()
+            menu.focusEffectDisabled()
         } else {
-            button
+            menu
         }
     }
 
@@ -220,7 +226,7 @@ struct PanelView: View {
     }
 }
 
-struct PanelSettingsButtonStyle: ButtonStyle {
+struct PanelMenuButtonStyle: ButtonStyle {
     let accent: Color
     let isFocused: Bool
 

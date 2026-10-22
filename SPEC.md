@@ -75,7 +75,7 @@ HappyLulu는 오늘의 출근 기록과 근무 설정으로 계산한 예정 퇴
 - 기본 창 920×720, 최소 창 820×620에서 한국어·영어를 지원한다. 선택 메뉴는 긴 영어 값을 위해 190pt 공간을 확보하며 가운데 예시는 줄바꿈한다. 실제로 켜고 끄는 설정에만 토글을 둔다.
 - 시간 미리보기는 가상 값 5,320초·18:00과 현재 표시 옵션으로 계산한다. 사용자 근태 기록을 예시 데이터로 사용하지 않는다. 로그인 행은 실제 상태·오류·시스템 승인 안내와 기존 변경 제한을 유지한다.
 - 사이드바 하단은 현재 언어의 [한국어 사용 안내](https://happylulu.cy-choi-lulu.chatgpt.site/guide/) 또는 [영어 사용 안내](https://happylulu.cy-choi-lulu.chatgpt.site/en/guide/)를 연다. 앱 종료는 표준 앱 메뉴와 ⌘Q로 제공한다.
-- 패널 설정 톱니는 28×28pt 버튼이며 키보드 포커스와 접근성 이름을 유지한다. 기본 배경은 투명, 눌림은 테마색 12%, 포커스는 테마색 2pt 테두리다. macOS 14 이상에서 시스템 focus 효과를 대체하고 macOS 13에서는 native fallback을 유지한다.
+- 패널 오른쪽 위 점 3개는 28×28pt **더 보기 / More** 메뉴다. **설정 / Settings**는 기존 설정 창을 열고 **종료 / Quit**는 표준 앱 종료 절차를 요청한다. 키보드 포커스와 한영 접근성 이름을 제공한다. 기본 배경은 투명, 눌림은 테마색 12%, 포커스는 테마색 2pt 테두리다. macOS 14 이상에서 시스템 focus 효과를 대체하고 macOS 13에서는 native fallback을 유지한다. 표준 앱 메뉴와 ⌘Q도 유지한다.
 - 표준 편집 메뉴는 현재 입력 대상에 실행 취소·다시 실행·잘라내기·복사·붙여넣기·전체 선택을 전달한다. 언어 변경 시 메뉴 이름도 갱신한다.
 
 검증 명령: `scripts/check-design-render.sh`, `scripts/check-settings-navigation.sh`, `scripts/check-panel-focus.sh`, `scripts/check-edit-menu.sh`, `scripts/check-vacation-eve.sh`, `scripts/check-vacation-appearance.sh`. 격리 렌더·입력 검사와 실제 활성 앱의 클릭·키보드 단축키·VoiceOver·macOS 13 런타임 수락은 별개다. 이 변경은 공개 버전 번호·업데이트 피드·릴리즈를 발행하지 않는다.
