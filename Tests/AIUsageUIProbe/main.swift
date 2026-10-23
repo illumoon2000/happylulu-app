@@ -6,6 +6,10 @@ import AfterSixCore
 import AIUsagePlugin
 import AIUsageIntegration
 
+private func reportUsageProbe(_ message: String) {
+    FileHandle.standardError.write(Data((message + "\n").utf8))
+}
+
 private struct PreviewUsageProvider: UsageProvider {
     let name = "Codex"
     func fetch() async throws -> UsageSnapshot {
@@ -34,6 +38,7 @@ private enum PreviewUsageModule: PluginModule {
 @MainActor
 private final class UsageProbeDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        reportUsageProbe("BEGIN usage UI applicationDidFinishLaunching")
         NSApp.activate(ignoringOtherApps: true)
         Task { @MainActor in
             do { try await AIUsageUIProbe.check(); exit(0) }
@@ -47,7 +52,11 @@ private final class UsageMenuObservation: NSObject {
     var menu: NSMenu?
     @objc func didBeginTracking(_ notification: Notification) {
         menu = notification.object as? NSMenu
-        DispatchQueue.main.async { self.menu?.cancelTracking() }
+        reportUsageProbe("BEGIN usage menu tracking")
+        // A synchronous menu loop may run inside the main-queue Task below.
+        // Schedule in its tracking mode so cancellation does not need queue reentry.
+        menu?.perform(#selector(NSMenu.cancelTracking), with: nil, afterDelay: 0,
+                      inModes: [.eventTracking, .default])
     }
 }
 
@@ -57,6 +66,7 @@ private final class UsageRoutingObservation { var openedPlugin: String? }
 @main
 struct AIUsageUIProbe {
     @MainActor static func main() {
+        reportUsageProbe("BEGIN usage UI app")
         let app = NSApplication.shared
         let delegate = UsageProbeDelegate()
         app.setActivationPolicy(.accessory)
@@ -128,7 +138,10 @@ struct AIUsageUIProbe {
     }
     @MainActor private static func render<V: View>(_ view: V, size: NSSize, name: String,
         directory: URL, scheme: ColorScheme, routing: UsageRoutingObservation? = nil) async throws {
-        let controller = NSHostingController(rootView: view)
+        reportUsageProbe("BEGIN usage render: \(name)")
+        let materialMode: LuluMaterialMode =
+            ProcessInfo.processInfo.environment["HAPPY_LULU_MATERIAL_MODE"] == "legacy" ? .legacy : .automatic
+        let controller = NSHostingController(rootView: view.environment(\.luluMaterialMode, materialMode))
         let isPanel = name.hasPrefix("panel-")
         let window: NSWindow = isPanel && LuluGlass.isSupported
             ? MenuBarPanel(content: controller, size: size)
@@ -180,17 +193,20 @@ struct AIUsageUIProbe {
                 name: NSMenu.didBeginTrackingNotification, object: nil)
             defer { NotificationCenter.default.removeObserver(menuObservation) }
             let menuPoint = host.convert(NSPoint(x: 334, y: 30), to: nil)
+            reportUsageProbe("BEGIN usage menu click: \(name)")
             for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
                 let event = NSEvent.mouseEvent(with: type, location: menuPoint, modifierFlags: [],
                     timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
                     context: nil, eventNumber: 0, clickCount: 1, pressure: type == .leftMouseDown ? 1 : 0)!
                 window.sendEvent(event)
             }
+            reportUsageProbe("END usage menu dispatch: \(name)")
             try await Task.sleep(for: .milliseconds(50))
             let menuTitles = menuObservation.menu?.items.filter { !$0.isSeparatorItem }.map(\.title)
             precondition(menuTitles == ["설정", "종료"],
                          "Settings/Quit menu missing for \(name): \(String(describing: menuTitles)); visible=\(window.isVisible), key=\(window.isKeyWindow)")
             print("PASS usage panel menu and routing: \(name)")
         }
+        reportUsageProbe("PASS usage render: \(name)")
     }
 }

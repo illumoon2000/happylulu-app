@@ -2,6 +2,10 @@
 # Render actual app views using synthetic quota data and an isolated app identity.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+case "${HAPPY_LULU_MATERIAL_MODE:-automatic}" in
+  automatic|legacy) ;;
+  *) echo "HAPPY_LULU_MATERIAL_MODE must be automatic or legacy" >&2; exit 64 ;;
+esac
 if [[ "${HAPPY_LULU_SKIP_BUILD:-0}" != "1" ]]; then
   swift build --build-system native --product HappyLulu >/dev/null
 fi
@@ -49,7 +53,15 @@ swiftc -parse-as-library -swift-version 6 -target "$(uname -m)-apple-macosx13.0"
   -framework EventKit -framework ServiceManagement -framework UserNotifications -framework Sparkle -lsqlite3 \
   -o "$app/Contents/MacOS/UsageProbe"
 status=0
-"$app/Contents/MacOS/UsageProbe" "$probe_dir/data" "$PWD/Resources/HappyLuluIcon.png" || status=$?
+python3 - "$app/Contents/MacOS/UsageProbe" "$probe_dir/data" "$PWD/Resources/HappyLuluIcon.png" <<'PYTIMEOUT' || status=$?
+import subprocess, sys
+try:
+    result = subprocess.run(sys.argv[1:], timeout=120)
+except subprocess.TimeoutExpired:
+    print("FAIL usage UI: probe exceeded 120 seconds; last BEGIN line identifies the blocked operation", file=sys.stderr)
+    sys.exit(124)
+sys.exit(result.returncode if result.returncode >= 0 else 128 - result.returncode)
+PYTIMEOUT
 if [[ -n "${HAPPY_LULU_USAGE_EVIDENCE:-}" ]]; then
   mkdir -p "$HAPPY_LULU_USAGE_EVIDENCE"
   cp "$probe_dir/data/"*.png "$HAPPY_LULU_USAGE_EVIDENCE/"
