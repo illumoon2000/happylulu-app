@@ -58,6 +58,13 @@ jobs:
           swift run --build-system native AfterSixParityChecks Tests/Shared/attendance.json
           swift run --build-system native CalendarSyncChecks
           swift run --build-system native CalendarSyncServiceChecks
+      - name: Check Liquid Glass and legacy rendering
+        run: |
+          HAPPY_LULU_MATERIAL_MODE=legacy bash scripts/check-design-render.sh
+          HAPPY_LULU_MATERIAL_MODE=automatic bash scripts/check-design-render.sh
+          HAPPY_LULU_MATERIAL_MODE=automatic HAPPY_LULU_RENDER_PALETTE=charcoal bash scripts/check-design-render.sh
+          HAPPY_LULU_RENDER_PALETTE=nativeGlass HAPPY_LULU_RENDER_SCHEME=light bash scripts/check-design-render.sh
+          HAPPY_LULU_RENDER_PALETTE=nativeGlass HAPPY_LULU_RENDER_SCHEME=dark HAPPY_LULU_RENDER_EXPANDED=1 bash scripts/check-design-render.sh
       - name: Check isolated calendar and updater integration
         run: |
           swift run --build-system native CPURunnerChecks
@@ -78,13 +85,6 @@ jobs:
           bash scripts/check-vacation-eve.sh
           bash scripts/check-vacation-appearance.sh
           bash scripts/check-plugin-isolation.sh
-      - name: Check Liquid Glass and legacy rendering
-        run: |
-          HAPPY_LULU_MATERIAL_MODE=legacy bash scripts/check-design-render.sh
-          HAPPY_LULU_MATERIAL_MODE=automatic bash scripts/check-design-render.sh
-          HAPPY_LULU_MATERIAL_MODE=automatic HAPPY_LULU_RENDER_PALETTE=charcoal bash scripts/check-design-render.sh
-          HAPPY_LULU_RENDER_PALETTE=nativeGlass HAPPY_LULU_RENDER_SCHEME=light bash scripts/check-design-render.sh
-          HAPPY_LULU_RENDER_PALETTE=nativeGlass HAPPY_LULU_RENDER_SCHEME=dark HAPPY_LULU_RENDER_EXPANDED=1 bash scripts/check-design-render.sh
       - name: Check optional Daouoffice integration
         run: |
           if [[ "${HAPPY_LULU_DISABLE_DAOUOFFICE:-}" != "1" && -d Sources/DaouOfficePlugin && -d Sources/DaouOfficeIntegration ]]; then

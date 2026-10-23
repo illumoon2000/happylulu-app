@@ -32,22 +32,26 @@ private enum RenderConfiguration {
 
 @MainActor
 private func capture<V: View>(_ view: V, size: NSSize, to url: URL) throws {
-    let host = NSHostingView(rootView: view.environment(\.luluMaterialMode, RenderConfiguration.materialMode))
+    let controller = NSHostingController(rootView: view.environment(\.luluMaterialMode, RenderConfiguration.materialMode))
+    let host = controller.view
     let isSettingsWindow = url.lastPathComponent.hasPrefix("settings-")
     let window = NSWindow(contentRect: NSRect(origin: NSPoint(x: -10000, y: -10000), size: size),
                           styleMask: isSettingsWindow ? [.titled, .closable, .miniaturizable, .resizable] : [.titled],
                           backing: .buffered, defer: false)
     window.isReleasedWhenClosed = false
-    window.contentView = host
+    window.contentViewController = controller
+    // Match the app's hosting path and set the viewport after attaching content.
+    window.setContentSize(size)
     window.orderFront(nil)
-    defer { window.orderOut(nil); window.contentView = nil; window.close() }
+    defer { window.orderOut(nil); window.contentViewController = nil; window.close() }
     RunLoop.current.run(until: Date().addingTimeInterval(0.12))
     host.layoutSubtreeIfNeeded()
     // SwiftUI text baselines settle in a second layout pass after the native window resizes.
     RunLoop.current.run(until: Date().addingTimeInterval(0.15))
     host.layoutSubtreeIfNeeded()
     host.displayIfNeeded()
-    precondition(host.bounds.size == size)
+    precondition(host.bounds.size == size,
+        "Render viewport mismatch for \(url.lastPathComponent): expected=\(size), bounds=\(host.bounds), frame=\(host.frame), window=\(window.frame), content=\(window.contentLayoutRect), screen=\(String(describing: window.screen?.frame)), visible=\(String(describing: window.screen?.visibleFrame))")
     if url.lastPathComponent.hasPrefix("settings-general-") {
         func controls(_ view: NSView) -> [NSControl] {
             ((view as? NSControl).map { [$0] } ?? []) + view.subviews.flatMap(controls)
