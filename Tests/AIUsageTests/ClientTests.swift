@@ -162,8 +162,9 @@ final class ClientTests: XCTestCase {
         pathlib.Path("\(marker.path)").write_text('ready')
         time.sleep(30)
         """)
-        let task = Task { try await CodexClient(timeout: 10).fetch(customPath: path) }
-        let end = Date().addingTimeInterval(3)
+        let task = Task { try await CodexClient(timeout: 20).fetch(customPath: path) }
+        // Allow cold subprocess startup independently of the cancellation latency below.
+        let end = Date().addingTimeInterval(10)
         while !FileManager.default.fileExists(atPath: marker.path) && Date() < end {
             try await Task.sleep(for: .milliseconds(5))
         }
