@@ -30,12 +30,23 @@ private enum RenderConfiguration {
     }
 }
 
+// Offscreen layout renders must not shrink to the CI runner's 1024×768 desktop.
+// Live fixture placement restores AppKit's real screen constraints below.
+@MainActor
+private final class RenderWindow: NSWindow {
+    var constrainsToScreen = false
+
+    override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
+        constrainsToScreen ? super.constrainFrameRect(frameRect, to: screen) : frameRect
+    }
+}
+
 @MainActor
 private func capture<V: View>(_ view: V, size: NSSize, to url: URL) throws {
     let controller = NSHostingController(rootView: view.environment(\.luluMaterialMode, RenderConfiguration.materialMode))
     let host = controller.view
     let isSettingsWindow = url.lastPathComponent.hasPrefix("settings-")
-    let window = NSWindow(contentRect: NSRect(origin: NSPoint(x: -10000, y: -10000), size: size),
+    let window = RenderWindow(contentRect: NSRect(origin: NSPoint(x: -10000, y: -10000), size: size),
                           styleMask: isSettingsWindow ? [.titled, .closable, .miniaturizable, .resizable] : [.titled],
                           backing: .buffered, defer: false)
     window.isReleasedWhenClosed = false
@@ -121,7 +132,8 @@ private func capture<V: View>(_ view: V, size: NSSize, to url: URL) throws {
             ? SettingsWindowChrome(window: window, appearance: .shared, mode: RenderConfiguration.materialMode)
             : nil
         defer { withExtendedLifetime(chrome) {} }
-        var captureWindow = window
+        window.constrainsToScreen = true
+        var captureWindow: NSWindow = window
         if !isSettingsWindow, LuluGlass.isSupported, RenderConfiguration.materialMode == .automatic {
             let content = NSHostingController(rootView: view
                 .environment(\.luluMaterialMode, RenderConfiguration.materialMode)
