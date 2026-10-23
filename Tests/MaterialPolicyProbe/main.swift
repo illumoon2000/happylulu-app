@@ -14,6 +14,10 @@ private struct PolicyView: View {
     @Environment(\.colorSchemeContrast) private var contrast
     let observation: Observation
 
+    init(observation: Observation) {
+        self.observation = observation
+    }
+
     var body: some View {
         Text("Isolated material policy fixture")
             .frame(width: 260, height: 70)

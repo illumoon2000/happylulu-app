@@ -12,6 +12,10 @@ private final class MaterialObservation {
 private struct MaterialObserver: View {
     private var glass = LuluGlass()
     let observation: MaterialObservation
+
+    init(observation: MaterialObservation) {
+        self.observation = observation
+    }
     var body: some View {
         Color.clear.frame(width: 1, height: 1)
             .onAppear { observation.enabled = glass.isEnabled }
