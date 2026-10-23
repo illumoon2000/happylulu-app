@@ -5,17 +5,20 @@ private typealias AppearanceState<Value> = SwiftUI.State<Value>
 
 @MainActor
 struct AppearanceSettingsView: View {
+    var glass = LuluGlass()
     @ObservedObject var appearance: AppearanceModel
     init(appearance: AppearanceModel = .shared) { self.appearance = appearance }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
-            HStack(spacing: 14) {
-                Image(nsImage: appearance.iconImage).resizable().scaledToFit().frame(width: 60, height: 60)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(L("외관", "Appearance")).font(.title2.bold())
-                    Text(L("테마, 색상과 앱 아이콘을 선택합니다.", "Choose your theme, colors and app icon."))
-                        .font(.callout).foregroundStyle(.secondary)
+            if !glass.isEnabled {
+                HStack(spacing: 14) {
+                    Image(nsImage: appearance.iconImage).resizable().scaledToFit().frame(width: 60, height: 60)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(L("외관", "Appearance")).font(.title2.bold())
+                        Text(L("테마, 색상과 앱 아이콘을 선택합니다.", "Choose your theme, colors and app icon."))
+                            .font(.callout).foregroundStyle(.secondary)
+                    }
                 }
             }
             if let error = appearance.errorMessage {
@@ -25,14 +28,10 @@ struct AppearanceSettingsView: View {
             GroupBox(L("테마", "Theme")) {
                 VStack(alignment: .leading, spacing: 12) {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 96))], spacing: 10) {
-                        ForEach(AppearancePalette.allCases, id: \.self) { palette in
+                        ForEach(AppearancePalette.allCases.filter { $0 != .nativeGlass || AppearanceModel.supportsNativeAppearance }, id: \.self) { palette in
                             Button { appearance.selectPalette(palette) } label: {
                                 VStack(spacing: 7) {
-                                    HStack(spacing: 0) {
-                                        ForEach([AppearanceColorRole.sidebar, .background, .accent], id: \.self) { role in
-                                            Color(nsColor: AppearanceModel.nsColor(palette.colors[role]!))
-                                        }
-                                    }.frame(height: 27).clipShape(RoundedRectangle(cornerRadius: 5))
+                                    palettePreview(palette)
                                     HStack(spacing: 3) {
                                         Text(palette.title).font(.caption).lineLimit(2)
                                             .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
@@ -46,36 +45,38 @@ struct AppearanceSettingsView: View {
                                 .accessibilityValue(appearance.preferences.palette == palette ? L("선택됨", "Selected") : "")
                         }
                     }
-                    if !appearance.preferences.customColors.isEmpty {
+                    if appearance.preferences.palette != .nativeGlass && !appearance.preferences.customColors.isEmpty {
                         Label(L("사용자 지정 색상", "Custom colors"), systemImage: "slider.horizontal.3").font(.caption)
                     }
                 }.padding(8)
             }.disabled(appearance.isReadOnly)
-            GroupBox(L("세부 색상", "Colors")) {
-                VStack(alignment: .leading, spacing: 12) {
-                    ForEach(AppearanceColorRole.allCases, id: \.self) { role in
-                        AppearanceColorEditor(appearance: appearance, role: role)
+            if appearance.preferences.palette != .nativeGlass {
+                GroupBox(L("세부 색상", "Colors")) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        ForEach(AppearanceColorRole.allCases, id: \.self) { role in
+                            AppearanceColorEditor(appearance: appearance, role: role)
+                        }
+                        HStack {
+                            Spacer()
+                            Button(L("현재 테마 기본값 복원", "Restore theme defaults")) { appearance.resetColors() }
+                        }
+                    }.padding(8)
+                }.disabled(appearance.isReadOnly)
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 12) {
+                        RoundedRectangle(cornerRadius: 6).fill(appearance.sidebar).frame(width: 35)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(L("미리보기", "Preview")).font(.headline)
+                            Text(L("출퇴근 기록과 설정에 같은 색상을 사용합니다.", "Attendance and settings share these colors."))
+                                .font(.callout)
+                            Text(L("강조색", "Accent")).foregroundStyle(appearance.accent).font(.caption.bold())
+                        }.padding(12).frame(maxWidth: .infinity, alignment: .leading).background(appearance.surface)
+                    }.padding(10).foregroundStyle(appearance.text).background(appearance.background)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                    if appearance.hasLowContrast {
+                        Label(L("글자 대비가 낮습니다. 가독성을 확인해 주세요.", "Low text contrast. Check readability."), systemImage: "exclamationmark.triangle")
+                            .font(.caption).foregroundStyle(.orange)
                     }
-                    HStack {
-                        Spacer()
-                        Button(L("현재 테마 기본값 복원", "Restore theme defaults")) { appearance.resetColors() }
-                    }
-                }.padding(8)
-            }.disabled(appearance.isReadOnly)
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 12) {
-                    RoundedRectangle(cornerRadius: 6).fill(appearance.sidebar).frame(width: 35)
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(L("미리보기", "Preview")).font(.headline)
-                        Text(L("출퇴근 기록과 설정에 같은 색상을 사용합니다.", "Attendance and settings share these colors."))
-                            .font(.callout)
-                        Text(L("강조색", "Accent")).foregroundStyle(appearance.accent).font(.caption.bold())
-                    }.padding(12).frame(maxWidth: .infinity, alignment: .leading).background(appearance.surface)
-                }.padding(10).foregroundStyle(appearance.text).background(appearance.background)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                if appearance.hasLowContrast {
-                    Label(L("글자 대비가 낮습니다. 가독성을 확인해 주세요.", "Low text contrast. Check readability."), systemImage: "exclamationmark.triangle")
-                        .font(.caption).foregroundStyle(.orange)
                 }
             }
             GroupBox(L("앱 아이콘", "App icon")) {
@@ -106,6 +107,24 @@ struct AppearanceSettingsView: View {
             }.disabled(appearance.isReadOnly)
         }.foregroundStyle(appearance.text)
     }
+
+    @ViewBuilder private func palettePreview(_ palette: AppearancePalette) -> some View {
+        if palette == .nativeGlass {
+            Image(systemName: "circle.lefthalf.filled")
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(Color(nsColor: .labelColor))
+                .frame(maxWidth: .infinity).frame(height: 27)
+                .luluGlassSurface(tint: .clear, fallback: Color(nsColor: .controlBackgroundColor),
+                                  cornerRadius: 5, usesSystemAppearance: true)
+        } else {
+            HStack(spacing: 0) {
+                ForEach([AppearanceColorRole.sidebar, .background, .accent], id: \.self) { role in
+                    Color(nsColor: AppearanceModel.nsColor(palette.colors[role]!))
+                }
+            }.frame(height: 27).clipShape(RoundedRectangle(cornerRadius: 5))
+        }
+    }
+
 }
 
 private struct AppearanceColorEditor: View {
@@ -132,6 +151,7 @@ private struct AppearanceColorEditor: View {
 private extension AppearancePalette {
     var title: String {
         switch self {
+        case .nativeGlass: L("순정 리퀴드 글래스", "Native Liquid Glass")
         case .offwhiteLilac: L("오프화이트 라일락", "Off-white lilac")
         case .softMint: L("소프트 민트", "Soft mint")
         case .warmStone: L("웜 스톤", "Warm stone")

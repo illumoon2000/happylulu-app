@@ -2,6 +2,31 @@ import AppKit
 import SwiftUI
 import AfterSixCore
 
+@MainActor
+private final class SchemeObservation {
+    var scheme: ColorScheme?
+}
+
+private struct SchemeContent: View {
+    @Environment(\.colorScheme) private var scheme
+    let observation: SchemeObservation
+    var body: some View {
+        Text("Isolated appearance fixture")
+            .onAppear { observation.scheme = scheme }
+            .onChange(of: scheme) { observation.scheme = $0 }
+    }
+}
+
+private struct SchemeFixture: View {
+    @ObservedObject var model: AppearanceModel
+    let observation: SchemeObservation
+    var body: some View {
+        SchemeContent(observation: observation)
+            .foregroundStyle(model.text).background(model.background)
+            .luluWindowColorScheme(model.preferredColorScheme)
+    }
+}
+
 @main
 struct AppearanceModelProbe {
     @MainActor static func main() throws {
@@ -98,6 +123,57 @@ struct AppearanceModelProbe {
                                 Int((rgb.greenComponent*255).rounded()),Int((rgb.blueComponent*255).rounded()))
             precondition(actual == background)
         }
+        if AppearanceModel.supportsNativeAppearance {
+            let observation = SchemeObservation()
+            let host = NSHostingView(rootView: SchemeFixture(model: model, observation: observation))
+            let window = NSWindow(contentRect: NSRect(x: -10000, y: -10000, width: 300, height: 100),
+                                  styleMask: [.titled], backing: .buffered, defer: false)
+            window.isReleasedWhenClosed = false
+            window.contentView = host
+            window.orderFront(nil)
+            let originalAppearance = NSApp.appearance
+            defer {
+                window.orderOut(nil); window.contentView = nil; window.close()
+                NSApp.appearance = originalAppearance
+            }
+            for (name, expectedScheme) in [(NSAppearance.Name.aqua, ColorScheme.light), (.darkAqua, .dark)] {
+                // This isolated process's appearance only; never change the user's OS preference.
+                NSApp.appearance = NSAppearance(named: name)
+                for (palette, expected) in [(AppearancePalette.charcoal, ColorScheme.dark),
+                    (.nativeGlass, expectedScheme), (.warmStone, .light), (.nativeGlass, expectedScheme)] {
+                    model.selectPalette(palette)
+                    RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+                    precondition(observation.scheme == expected,
+                        "Open window must follow theme changes without retaining a previous forced scheme: \(palette) / \(name)")
+                }
+                precondition(model.usesNativeAppearance && model.preferredColorScheme == nil && !model.hasLowContrast)
+                NSAppearance(named: name)!.performAsCurrentDrawingAppearance {
+                    let expectedColors: [(AppearanceColorRole, NSColor)] = [(.background, .windowBackgroundColor),
+                        (.sidebar, .underPageBackgroundColor), (.surface, .controlBackgroundColor),
+                        (.accent, .controlAccentColor), (.text, .labelColor)]
+                    for (role, systemColor) in expectedColors {
+                        let actual = NSColor(model.color(role)).usingColorSpace(.sRGB)!
+                        let expected = systemColor.usingColorSpace(.sRGB)!
+                        precondition(abs(actual.redComponent - expected.redComponent) < 0.001
+                            && abs(actual.greenComponent - expected.greenComponent) < 0.001
+                            && abs(actual.blueComponent - expected.blueComponent) < 0.001,
+                            "Native theme must use semantic system color for \(role) in \(name)")
+                    }
+                }
+            }
+            // System appearance changes must propagate without reselecting a theme.
+            for (name, expected) in [(NSAppearance.Name.aqua, ColorScheme.light), (.darkAqua, .dark)] {
+                NSApp.appearance = NSAppearance(named: name)
+                RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+                precondition(observation.scheme == expected && model.preferences.palette == .nativeGlass)
+            }
+            let savedNative = try store.load()
+            precondition(savedNative?.palette == .nativeGlass)
+            let reloaded = AppearanceModel(store: store, originalIcon: original)
+            precondition(reloaded.usesNativeAppearance && reloaded.preferredColorScheme == nil)
+            print("PASS native appearance: five semantic colors in light/dark, live charcoal/native/warm/native transitions, persisted selection")
+        }
+        model.selectPalette(.offwhiteLilac)
         model.setColor("#112233", for: .background)
         let valid = model.preferences
         model.setColor("oops", for: .background)

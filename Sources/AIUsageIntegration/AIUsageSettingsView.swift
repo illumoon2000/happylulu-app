@@ -41,7 +41,7 @@ public struct AIUsageSettingsView: View {
                             .disabled(model.isRunning)
                         if model.isRefreshing { ProgressView().controlSize(.small).accessibilityLabel(t("사용량 조회 중", "Reading usage")) }
                     }
-                }.padding(8)
+                }.padding(8).frame(maxWidth: .infinity, alignment: .leading)
             }
             GroupBox(t("표시 및 갱신", "Display and refresh")) {
                 VStack(alignment: .leading, spacing: 14) {
@@ -62,7 +62,7 @@ public struct AIUsageSettingsView: View {
                             ForEach([10, 20, 30], id: \.self) { value in Text("\(value)%").tag(value) }
                         }
                     }
-                }.padding(8)
+                }.padding(8).frame(maxWidth: .infinity, alignment: .leading)
             }
             DisclosureGroup(t("Codex 연결", "Codex connection")) {
                 VStack(alignment: .leading, spacing: 12) {

@@ -5,6 +5,7 @@ import AfterSixCore
 private typealias PanelState<Value> = SwiftUI.State<Value>
 
 struct PanelView: View {
+    var glass = LuluGlass()
     @ObservedObject private var appearance = AppearanceModel.shared
     @ObservedObject var model: AppModel
     @ObservedObject var calendarSync: CalendarSyncModel
@@ -88,7 +89,8 @@ struct PanelView: View {
                 }
             }
             .padding(10).frame(maxWidth: .infinity, minHeight: 156, maxHeight: 156, alignment: .topLeading)
-            .background(appearance.surface, in: RoundedRectangle(cornerRadius: 12))
+            .background(appearance.surface.opacity(glass.isEnabled && !appearance.usesNativeAppearance ? 0.42 : 1),
+                        in: RoundedRectangle(cornerRadius: glass.isEnabled ? 18 : 12))
             Divider()
             ForEach(plugins.menuBarItems) { item in
                 Button { onOpenPlugin(item.id) } label: {
@@ -105,8 +107,9 @@ struct PanelView: View {
         .padding(16).frame(width: 364, height: CGFloat(350 + 40 * plugins.menuBarItems.count), alignment: .topLeading)
         .tint(accent)
         .foregroundStyle(appearance.text)
-        .background(appearance.background)
-        .preferredColorScheme(appearance.isDark ? .dark : .light)
+        .luluGlassSurface(tint: appearance.background, fallback: appearance.background,
+                          cornerRadius: 24, legacyCornerRadius: 0, usesSystemAppearance: appearance.usesNativeAppearance)
+        .luluWindowColorScheme(appearance.preferredColorScheme)
         .environment(\.locale, selectedLocale)
         .onAppear { model.refresh() }
         .onChange(of: focusedDigit) { digit in
@@ -127,14 +130,16 @@ struct PanelView: View {
         .menuStyle(.button)
         .menuIndicator(.hidden)
         .fixedSize()
-        .buttonStyle(PanelMenuButtonStyle(accent: accent, isFocused: moreMenuFocused))
         .focused($moreMenuFocused)
         .accessibilityLabel(L("더 보기", "More"))
-        if #available(macOS 14, *) {
-            // Replace the system focus fill while retaining keyboard focus and activation.
-            menu.focusEffectDisabled()
+        if appearance.usesNativeAppearance {
+            menu.luluGlassButton()
+        } else if #available(macOS 14, *) {
+            // Custom palettes retain the existing transparent header control.
+            menu.buttonStyle(PanelMenuButtonStyle(accent: accent, isFocused: moreMenuFocused))
+                .focusEffectDisabled()
         } else {
-            menu
+            menu.buttonStyle(PanelMenuButtonStyle(accent: accent, isFocused: moreMenuFocused))
         }
     }
 

@@ -5,10 +5,38 @@ import AppPluginCore
 import AppPluginHost
 
 @MainActor
+private enum RenderConfiguration {
+    static var materialMode: LuluMaterialMode {
+        switch ProcessInfo.processInfo.environment["HAPPY_LULU_MATERIAL_MODE"] ?? "automatic" {
+        case "automatic": .automatic
+        case "legacy": .legacy
+        default: fatalError("HAPPY_LULU_MATERIAL_MODE must be automatic or legacy")
+        }
+    }
+
+    static func applyPalette() {
+        switch ProcessInfo.processInfo.environment["HAPPY_LULU_RENDER_SCHEME"] ?? "system" {
+        case "system": break
+        case "light": NSApp.appearance = NSAppearance(named: .aqua)
+        case "dark": NSApp.appearance = NSAppearance(named: .darkAqua)
+        default: fatalError("Unknown HAPPY_LULU_RENDER_SCHEME")
+        }
+        guard let raw = ProcessInfo.processInfo.environment["HAPPY_LULU_RENDER_PALETTE"] else { return }
+        guard let palette = AppearancePalette(rawValue: raw) else {
+            fatalError("Unknown HAPPY_LULU_RENDER_PALETTE: \(raw)")
+        }
+        AppearanceModel.shared.selectPalette(palette)
+        precondition(AppearanceModel.shared.preferences.palette == palette)
+    }
+}
+
+@MainActor
 private func capture<V: View>(_ view: V, size: NSSize, to url: URL) throws {
-    let host = NSHostingView(rootView: view)
+    let host = NSHostingView(rootView: view.environment(\.luluMaterialMode, RenderConfiguration.materialMode))
+    let isSettingsWindow = url.lastPathComponent.hasPrefix("settings-")
     let window = NSWindow(contentRect: NSRect(origin: NSPoint(x: -10000, y: -10000), size: size),
-                          styleMask: [.titled], backing: .buffered, defer: false)
+                          styleMask: isSettingsWindow ? [.titled, .closable, .miniaturizable, .resizable] : [.titled],
+                          backing: .buffered, defer: false)
     window.isReleasedWhenClosed = false
     window.contentView = host
     window.orderFront(nil)
@@ -28,9 +56,9 @@ private func capture<V: View>(_ view: V, size: NSSize, to url: URL) throws {
         if switches.isEmpty {
             print("SKIP general native control geometry/AX: CLI SwiftUI host does not expose NSSwitch descendants; inspect retained renders")
         } else {
-            precondition(switches.count == 2, "Picker rows must not create fake toggles")
+            precondition(switches.count == 3, "Departure, usage and login must each have one switch")
             let frames = switches.map { host.convert($0.bounds, from: $0) }
-            precondition(abs(frames[0].midX - frames[1].midX) < 1, "General switches must share the right column")
+            precondition(frames.allSatisfy { abs($0.midX - frames[0].midX) < 1 }, "General switches must share the right column")
             let pickers = controls(host).compactMap { $0 as? NSPopUpButton }
             if pickers.count == 2 {
                 let rightEdge = frames[0].maxX
@@ -42,7 +70,7 @@ private func capture<V: View>(_ view: V, size: NSSize, to url: URL) throws {
             } else {
                 print("SKIP picker native geometry: CLI SwiftUI menus have no NSPopUpButton descendants; inspect retained same-row/right-column renders")
             }
-            print("PASS general native geometry: exactly two switches share the right column")
+            print("PASS general native geometry: exactly three switches share the right column")
             // SwiftUI exposes accessibility on semantic wrappers, not the backing NSSwitch.
             // Inspect the actual hit-test element and its accessibility parents when the CLI host vends them.
             func attribute(_ object: NSObject, _ name: String) -> AnyObject? {
@@ -61,25 +89,89 @@ private func capture<V: View>(_ view: V, size: NSSize, to url: URL) throws {
                 for _ in 0..<8 {
                     guard let current = element else { break }
                     let labels = ["accessibilityLabel", "accessibilityTitle"].compactMap { attribute(current, $0) as? String }
-                    if labels.contains(expected) { accessibleSwitches += 1; break }
+                    if labels.contains(expected) || labels.contains(L("사용량 보기", "Show usage")) { accessibleSwitches += 1; break }
                     element = attribute(current, "accessibilityParent") as? NSObject
                 }
             }
-            if accessibleSwitches == 2 {
-                print("PASS general accessibility: both semantic switches expose localized setting names")
+            if accessibleSwitches == 3 {
+                print("PASS general accessibility: all three semantic switches expose localized setting names")
             } else {
-                print("SKIP general semantic AX names: CLI SwiftUI host exposes \(accessibleSwitches)/2 named hit-test elements; explicit labels retained for desktop validation")
+                print("SKIP general semantic AX names: CLI SwiftUI host exposes \(accessibleSwitches)/3 named hit-test elements; explicit labels retained for desktop validation")
             }
         }
     }
     let pixels = host.bitmapImageRepForCachingDisplay(in: host.bounds)!
     host.cacheDisplay(in: host.bounds, to: pixels)
     try pixels.representation(using: .png, properties: [:])!.write(to: url)
+
+    // Opt-in WindowServer evidence captures only this synthetic fixture window.
+    // cacheDisplay alone cannot prove the compositor's live glass rendering.
+    if ProcessInfo.processInfo.environment["HAPPY_LULU_RENDER_LIVE"] == "1",
+       ["panel-korean-regular.png", "settings-general-korean.png", "settings-korean.png"].contains(url.lastPathComponent) {
+        guard CGPreflightScreenCaptureAccess() else {
+            print("SKIP WindowServer capture: existing screen-capture access is unavailable; no permission requested")
+            return
+        }
+        window.title = "HappyLulu · UI fixture"
+        let chrome = isSettingsWindow
+            ? SettingsWindowChrome(window: window, appearance: .shared, mode: RenderConfiguration.materialMode)
+            : nil
+        defer { withExtendedLifetime(chrome) {} }
+        var captureWindow = window
+        if !isSettingsWindow, LuluGlass.isSupported, RenderConfiguration.materialMode == .automatic {
+            let content = NSHostingController(rootView: view
+                .environment(\.luluMaterialMode, RenderConfiguration.materialMode)
+                .clipShape(RoundedRectangle(cornerRadius: 24)))
+            let panel = MenuBarPanel(content: content, size: size)
+            panel.contentViewController = content
+            captureWindow = panel
+        }
+        defer { if captureWindow !== window { captureWindow.close() } }
+        captureWindow.center()
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        captureWindow.makeKeyAndOrderFront(nil)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+        print("Fixture active=\(NSApp.isActive), key=\(captureWindow.isKeyWindow)")
+        let screenshot = url.deletingPathExtension().appendingPathExtension("window.png")
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+        process.arguments = ["-x", "-o", "-l", String(captureWindow.windowNumber), screenshot.path]
+        try process.run()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0, FileManager.default.fileExists(atPath: screenshot.path) else {
+            throw NSError(domain: "DesignRenderProbe", code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "WindowServer fixture capture failed"])
+        }
+        print("PASS WindowServer fixture capture: \(screenshot.lastPathComponent)")
+    }
+}
+
+@MainActor
+private final class LiveRenderDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.activate(ignoringOtherApps: true)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+            do { try DesignRenderProbe.render(); exit(0) }
+            catch { print("FAIL live render: \(error)"); exit(1) }
+        }
+    }
 }
 
 @main
 struct DesignRenderProbe {
     @MainActor static func main() throws {
+        if ProcessInfo.processInfo.environment["HAPPY_LULU_RENDER_LIVE"] == "1" {
+            let app = NSApplication.shared
+            let delegate = LiveRenderDelegate()
+            app.setActivationPolicy(.accessory)
+            app.delegate = delegate
+            withExtendedLifetime(delegate) { app.run() }
+        } else {
+            try render()
+        }
+    }
+
+    @MainActor static func render() throws {
         let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
         let output = URL(fileURLWithPath: CommandLine.arguments[3], isDirectory: true)
         let identity = Bundle.main.bundleIdentifier!
@@ -87,6 +179,17 @@ struct DesignRenderProbe {
         _ = NSApplication.shared
         defer { UserDefaults.standard.removePersistentDomain(forName: identity) }
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+        RenderConfiguration.applyPalette()
+        let mode = ProcessInfo.processInfo.environment["HAPPY_LULU_MATERIAL_MODE"] ?? "automatic"
+        let context = """
+        OS: \(ProcessInfo.processInfo.operatingSystemVersionString)
+        Material mode: \(mode)
+        Palette: \(AppearanceModel.shared.preferences.palette.rawValue)
+        Offscreen NSHostingView bitmaps verify layout only. Optional .window.png files capture fixture windows through WindowServer; production popover/window chrome remain unverified.
+        Accessibility uses the current system preferences; this probe never changes them.
+        """
+        try context.write(to: output.appendingPathComponent("render-context.txt"), atomically: true, encoding: .utf8)
+        print(context)
         let day = "2026-10-21"
         let timeZone = TimeZone(identifier: "Asia/Seoul")!
         var calendar = Calendar(identifier: .gregorian)
@@ -191,6 +294,42 @@ struct DesignRenderProbe {
                     let afterGeneral = try Data(contentsOf: store.url)
                     precondition(afterGeneral == original, "General settings preview must preserve attendance bytes")
                     print("PASS general settings \(language.rawValue): 5 live formats, departure on/off, localized guide, 920x720/820x620 renders, attendance preserved")
+
+                    for section in [SettingsSection.work, .history, .plugins, .updates] {
+                        navigation.selection = section
+                        for (suffix, size) in [("", NSSize(width: 920, height: 720)),
+                                               ("-minimum", NSSize(width: 820, height: 620))] {
+                            try capture(SettingsView(model: model, updater: AppUpdater(), calendarSync: sync, plugins: plugins,
+                                featureCalendar: FeatureCalendarModel(router: plugins.router),
+                                pluginPresentations: presentations, navigation: navigation), size: size,
+                                to: output.appendingPathComponent("settings-\(section.rawValue)-\(language.rawValue)\(suffix).png"))
+                        }
+                    }
+
+                    // A separate in-memory catalog exercises the installed-plugin host. External integration
+                    // stays disabled, so the calendar view reads only the empty default fixture adapter.
+                    let installed = PluginManagerModel(defaultAdapter: DefaultFeatureAdapter(),
+                        routingStore: FeatureRoutingStore(url: nil), catalogStore: PluginCatalogStore(url: nil))
+                    let installedPresentations = PluginSettingsPresentationRegistry()
+                    installed.configureCatalog(sync: sync, presentations: installedPresentations, modules: [],
+                        allowsExternalIntegrations: false)
+                    installed.install("mac-calendar")
+                    installed.setEnabled("mac-calendar", true)
+                    precondition(installed.isEnabled("mac-calendar") && !installed.allowsExternalIntegrations)
+                    precondition(installed.router.selectedID(for: .calendar) == installed.router.defaultID)
+                    navigation.selection = .plugin
+                    navigation.pluginID = "mac-calendar"
+                    for (suffix, size) in [("", NSSize(width: 920, height: 720)),
+                                           ("-minimum", NSSize(width: 820, height: 620))] {
+                        try capture(SettingsView(model: model, updater: AppUpdater(), calendarSync: sync, plugins: installed,
+                            featureCalendar: FeatureCalendarModel(router: installed.router),
+                            pluginPresentations: installedPresentations, navigation: navigation), size: size,
+                            to: output.appendingPathComponent("settings-calendar-\(language.rawValue)\(suffix).png"))
+                    }
+                    precondition(!sync.runtimeAllowed, "Rendering must never enable calendar services")
+                    let afterSettings = try Data(contentsOf: store.url)
+                    precondition(afterSettings == original, "All settings renders must preserve attendance bytes")
+                    print("PASS settings \(language.rawValue): work/history/plugins/updates/installed calendar at both sizes; attendance preserved and external services disabled")
                 }
             }
         }
@@ -256,6 +395,6 @@ struct DesignRenderProbe {
             }
         }
         print("PASS offline design render: 8 AppModel states, 16 Korean/English 364x350 panels, 4 appearance settings (920x720 and820x620), 26x18pt light/dark 1x/2x boards with matching 28pt color headers; fixture attendance bytes preserved")
-        print("Live desktop, VoiceOver, menu-bar interaction and real-data acceptance remain unverified")
+        print("cacheDisplay verifies layout only; optional WindowServer captures are reported separately. Production popover/window chrome, VoiceOver, changed system accessibility settings, menu-bar interaction and real-data acceptance remain unverified")
     }
 }

@@ -4,6 +4,7 @@ import AfterSixCore
 private typealias CalendarState<Value> = SwiftUI.State<Value>
 
 struct MonthCalendarView<DayContent: View>: View {
+    var glass = LuluGlass()
     @Binding var month: Date
     @Binding var selectedDay: Date
     let calendar: Calendar
@@ -24,7 +25,8 @@ struct MonthCalendarView<DayContent: View>: View {
                 Spacer()
                 Button(L("오늘", "Today")) { month = Date(); selectedDay = Date() }
             }
-            .buttonStyle(.borderless)
+            .luluGlassButton()
+            .padding(glass.isEnabled ? 8 : 0)
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 7), spacing: 4) {
                 ForEach(0..<7, id: \.self) { index in
                     let weekday = (calendar.firstWeekday - 1 + index) % 7

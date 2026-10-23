@@ -1,6 +1,19 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# These options affect only the isolated probe. The production app has no material override flag.
+case "${HAPPY_LULU_MATERIAL_MODE:-automatic}" in
+  automatic|legacy) ;;
+  *) echo "HAPPY_LULU_MATERIAL_MODE must be automatic or legacy" >&2; exit 64 ;;
+esac
+case "${HAPPY_LULU_RENDER_PALETTE:-offwhiteLilac}" in
+  softMint|warmStone|blueGray|dustyLavender|charcoal|offwhiteLilac|nativeGlass) ;;
+  *) echo "Unknown HAPPY_LULU_RENDER_PALETTE" >&2; exit 64 ;;
+esac
+case "${HAPPY_LULU_RENDER_SCHEME:-system}" in
+  system|light|dark) ;;
+  *) echo "HAPPY_LULU_RENDER_SCHEME must be system, light or dark" >&2; exit 64 ;;
+esac
 if [[ "${HAPPY_LULU_SKIP_BUILD:-0}" != "1" ]]; then
   swift build --build-system native --product HappyLulu >/dev/null
 fi

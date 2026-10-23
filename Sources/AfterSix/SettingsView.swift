@@ -73,6 +73,7 @@ enum GeneralSettingsPreview {
 }
 
 struct SettingsView: View {
+    var glass = LuluGlass()
     @ObservedObject private var appearance = AppearanceModel.shared
     @ObservedObject var model: AppModel
     @ObservedObject var updater: AppUpdater
@@ -86,49 +87,24 @@ struct SettingsView: View {
     private var accent: Color { appearance.accent }
     private var selectedLocale: Locale { _ = language.choice; return displayLocale }
 
-    var body: some View {
+    @ViewBuilder var body: some View {
+        if appearance.usesNativeAppearance {
+            settingsContent.groupBoxStyle(DefaultGroupBoxStyle())
+        } else {
+            settingsContent.groupBoxStyle(LuluSettingsGroupBoxStyle(surface: appearance.surface))
+        }
+    }
+
+    private var settingsContent: some View {
         HStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 8) {
-                    Image(nsImage: LuluBrand.headerIcon).resizable().interpolation(.high).frame(width: 24, height: 24)
-                    Text("happylulu").font(.headline)
-                }.padding(.horizontal, 16).padding(.top, 20)
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(L("기본 설정", "Core settings")).font(.caption).foregroundStyle(.secondary).padding(8)
-                        ForEach([SettingsSection.general, .appearance, .work, .history, .updates]) { section in
-                            sidebarButton(section.title, symbol: section.symbol,
-                                          selected: selectedSection == section) { navigation.selection = section }
-                        }
-                        sidebarButton(L("플러그인 관리", "Manage plugins"), symbol: "puzzlepiece.extension",
-                                      selected: selectedSection == .plugins) { navigation.selection = .plugins }
-                            .padding(.top, 12)
-                        Divider().padding(.vertical, 12)
-                        Text(L("설치된 플러그인", "Installed plugins")).font(.caption).foregroundStyle(.secondary).padding(8)
-                        ForEach(plugins.installed) { entry in
-                            sidebarButton(entry.name, symbol: entry.symbol,
-                                          selected: selectedSection == .plugin && navigation.pluginID == entry.id) {
-                                navigation.pluginID = entry.id; navigation.selection = .plugin
-                            }
-                        }
-                        if plugins.installed.isEmpty {
-                            Text(L("설치된 항목이 없어요", "No plugins installed")).font(.caption).foregroundStyle(.secondary).padding(8)
-                        }
-                    }.padding(.horizontal, 10)
-                }.accessibilityLabel(L("설정 항목", "Settings sections"))
-                Link(destination: GeneralSettingsPreview.guideURL) {
-                    Label(L("사용 안내", "User guide"), systemImage: "book")
-                }
-                .accessibilityIdentifier("settings-user-guide")
-                .padding(12)
-            }
-            .frame(width: 205).background(appearance.sidebar)
-            Divider()
+            sidebar
+            if !glass.isEnabled { Divider() }
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     if selectedSection != .plugin && selectedSection != .calendar {
                         VStack(alignment: .leading, spacing: 5) {
-                            Text(selectedSection == .plugins ? L("플러그인 관리", "Manage plugins") : selectedSection.title).font(.title.bold())
+                            Text(selectedSection == .plugins ? L("플러그인 관리", "Manage plugins") : selectedSection.title)
+                                .font(glass.isEnabled ? .system(size: 28, weight: .bold) : .title.bold())
                             Text(selectedSection == .plugins ? L("필요한 기능만 추가해 사용하세요.", "Add only the features you need.") : selectedSection.subtitle).foregroundStyle(.secondary)
                         }
                     }
@@ -154,7 +130,7 @@ struct SettingsView: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(28)
+                .padding(glass.isEnabled ? 24 : 28)
             }
             .id("\(selectedSection.rawValue)|\(navigation.pluginID ?? "")")
             .background(appearance.background)
@@ -163,13 +139,131 @@ struct SettingsView: View {
         .onAppear { model.refresh() }
         .foregroundStyle(appearance.text)
         .background(appearance.background)
-        .preferredColorScheme(appearance.isDark ? .dark : .light)
-        .groupBoxStyle(LuluSettingsGroupBoxStyle(surface: appearance.surface))
+        .luluWindowColorScheme(appearance.preferredColorScheme)
+        .luluGlassControls(usesSystemAppearance: appearance.usesNativeAppearance)
         .tint(accent)
         .environment(\.locale, selectedLocale)
     }
 
     private var selectedSection: SettingsSection { navigation.selection ?? .general }
+
+    private enum SidebarSelection: Hashable {
+        case section(SettingsSection)
+        case plugin(String)
+    }
+
+    private var sidebarSelection: Binding<SidebarSelection?> {
+        Binding(get: {
+            switch selectedSection {
+            case .plugin:
+                navigation.pluginID.map(SidebarSelection.plugin)
+            case .calendar:
+                .plugin(calendarPluginID)
+            default:
+                .section(selectedSection)
+            }
+        }, set: { selection in
+            guard let selection else { return }
+            switch selection {
+            case .section(let section):
+                navigation.selection = section
+            case .plugin(let id):
+                navigation.pluginID = id
+                navigation.selection = .plugin
+            }
+        })
+    }
+
+    @ViewBuilder private var sidebar: some View {
+        if appearance.usesNativeAppearance {
+            nativeSidebar
+        } else {
+            themedSidebar
+        }
+    }
+
+    private var nativeSidebar: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(nsImage: LuluBrand.headerIcon).resizable().interpolation(.high).frame(width: 24, height: 24)
+                Text("happylulu").font(.headline)
+            }.padding(.horizontal, 16).padding(.top, 20)
+            List(selection: sidebarSelection) {
+                Section(L("기본 설정", "Core settings")) {
+                    ForEach([SettingsSection.general, .appearance, .work, .history, .updates]) { section in
+                        Label(section.title, systemImage: section.symbol)
+                            .tag(SidebarSelection.section(section))
+                    }
+                    Label(L("플러그인 관리", "Manage plugins"), systemImage: "puzzlepiece.extension")
+                        .tag(SidebarSelection.section(.plugins))
+                }
+                Section(L("설치된 플러그인", "Installed plugins")) {
+                    ForEach(plugins.installed) { entry in
+                        Label(entry.name, systemImage: entry.symbol)
+                            .tag(SidebarSelection.plugin(entry.id))
+                    }
+                    if plugins.installed.isEmpty {
+                        Text(L("설치된 항목이 없어요", "No plugins installed"))
+                            .font(.caption).foregroundStyle(.secondary)
+                            .disabled(true)
+                    }
+                }
+            }
+            .listStyle(.sidebar)
+            .scrollContentBackground(.hidden)
+            .accessibilityLabel(L("설정 항목", "Settings sections"))
+            Link(destination: GeneralSettingsPreview.guideURL) {
+                Label(L("사용 안내", "User guide"), systemImage: "book")
+            }
+            .accessibilityIdentifier("settings-user-guide")
+            .padding(12)
+        }
+        .frame(width: 205)
+        .luluGlassSurface(tint: appearance.sidebar, fallback: appearance.sidebar,
+                          cornerRadius: 20, legacyCornerRadius: 0, usesSystemAppearance: true)
+        .padding(glass.isEnabled ? 10 : 0)
+    }
+
+    private var themedSidebar: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(nsImage: LuluBrand.headerIcon).resizable().interpolation(.high).frame(width: 24, height: 24)
+                Text("happylulu").font(.headline)
+            }.padding(.horizontal, 16).padding(.top, 20)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(L("기본 설정", "Core settings")).font(.caption).foregroundStyle(.secondary).padding(8)
+                    ForEach([SettingsSection.general, .appearance, .work, .history, .updates]) { section in
+                        sidebarButton(section.title, symbol: section.symbol,
+                                      selected: selectedSection == section) { navigation.selection = section }
+                    }
+                    sidebarButton(L("플러그인 관리", "Manage plugins"), symbol: "puzzlepiece.extension",
+                                  selected: selectedSection == .plugins) { navigation.selection = .plugins }
+                        .padding(.top, 12)
+                    Divider().padding(.vertical, 12)
+                    Text(L("설치된 플러그인", "Installed plugins")).font(.caption).foregroundStyle(.secondary).padding(8)
+                    ForEach(plugins.installed) { entry in
+                        sidebarButton(entry.name, symbol: entry.symbol,
+                                      selected: selectedSection == .plugin && navigation.pluginID == entry.id) {
+                            navigation.pluginID = entry.id; navigation.selection = .plugin
+                        }
+                    }
+                    if plugins.installed.isEmpty {
+                        Text(L("설치된 항목이 없어요", "No plugins installed")).font(.caption).foregroundStyle(.secondary).padding(8)
+                    }
+                }.padding(.horizontal, 10)
+            }.accessibilityLabel(L("설정 항목", "Settings sections"))
+            Link(destination: GeneralSettingsPreview.guideURL) {
+                Label(L("사용 안내", "User guide"), systemImage: "book")
+            }
+            .accessibilityIdentifier("settings-user-guide")
+            .padding(12)
+        }
+        .frame(width: 205)
+        .luluGlassSurface(tint: appearance.sidebar, fallback: appearance.sidebar,
+                          cornerRadius: 20, legacyCornerRadius: 0)
+        .padding(glass.isEnabled ? 10 : 0)
+    }
 
     private func sidebarButton(_ title: String, symbol: String, selected: Bool,
                                action: @escaping () -> Void) -> some View {
@@ -177,7 +271,8 @@ struct SettingsView: View {
             Label(title, systemImage: symbol).frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 10).padding(.vertical, 9)
                 .contentShape(Rectangle())
-                .background(selected ? accent.opacity(0.13) : .clear, in: RoundedRectangle(cornerRadius: 6))
+                .background(selected ? accent.opacity(glass.isEnabled ? 0.18 : 0.13) : .clear,
+                            in: RoundedRectangle(cornerRadius: glass.isEnabled ? 10 : 6))
         }.buttonStyle(.plain).accessibilityAddTraits(selected ? .isSelected : [])
     }
 
@@ -438,12 +533,22 @@ struct SettingsView: View {
 }
 
 private struct LuluSettingsGroupBoxStyle: GroupBoxStyle {
+    var glass = LuluGlass()
     let surface: Color
-    func makeBody(configuration: Configuration) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            configuration.label.font(.headline)
-            configuration.content
-        }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
-            .background(surface, in: RoundedRectangle(cornerRadius: 10))
+    @ViewBuilder func makeBody(configuration: Configuration) -> some View {
+        if glass.isEnabled {
+            VStack(alignment: .leading, spacing: 10) {
+                configuration.label.font(.headline).padding(.horizontal, 4)
+                configuration.content
+                    .padding(16).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(surface.opacity(0.8), in: RoundedRectangle(cornerRadius: 16))
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 12) {
+                configuration.label.font(.headline)
+                configuration.content
+            }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
+                .background(surface, in: RoundedRectangle(cornerRadius: 10))
+        }
     }
 }

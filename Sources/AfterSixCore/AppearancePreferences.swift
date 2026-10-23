@@ -6,11 +6,14 @@ public enum AppearanceColorRole: String, Codable, CaseIterable, Sendable {
 }
 
 public enum AppearancePalette: String, Codable, CaseIterable, Sendable {
-    case softMint, warmStone, blueGray, dustyLavender, charcoal, offwhiteLilac
+    case softMint, warmStone, blueGray, dustyLavender, charcoal, offwhiteLilac, nativeGlass
 
     public var colors: [AppearanceColorRole: String] {
         let values: [String]
         switch self {
+        // Neutral fallback for older systems and static previews. The native theme
+        // uses dynamic AppKit semantic colors at runtime, not these HEX values.
+        case .nativeGlass: values = ["#F5F5F5", "#F0F0F0", "#FFFFFF", "#007AFF", "#1D1D1F"]
         case .offwhiteLilac: values = ["#FAF9FC", "#EEE8F8", "#FFFFFF", "#7054B3", "#2F2B3D"]
         case .softMint: values = ["#E9EFEB", "#E0E7E2", "#F2F5F3", "#286F5D", "#26382E"]
         case .warmStone: values = ["#EEEAE3", "#E4DED5", "#F6F2ED", "#786347", "#38342E"]
@@ -55,6 +58,7 @@ public struct AppearancePreferences: Codable, Equatable, Sendable {
     }
 
     public var colors: [AppearanceColorRole: String] {
+        guard palette != .nativeGlass else { return palette.colors }
         var result = palette.colors
         for role in AppearanceColorRole.allCases {
             if let value = customColors[role.rawValue] { result[role] = value }
@@ -63,7 +67,9 @@ public struct AppearancePreferences: Codable, Equatable, Sendable {
     }
 
     public mutating func setColor(_ value: String, for role: AppearanceColorRole) throws {
-        customColors[role.rawValue] = try Self.normalizedHex(value)
+        let normalized = try Self.normalizedHex(value)
+        guard palette != .nativeGlass else { return }
+        customColors[role.rawValue] = normalized
     }
 
     public mutating func selectPalette(_ value: AppearancePalette) {

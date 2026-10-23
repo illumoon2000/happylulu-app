@@ -21,7 +21,16 @@ final class AppearanceModel: ObservableObject {
     var accent: Color { color(.accent) }
     var text: Color { color(.text) }
     var isDark: Bool { AppearancePreferences.luminance(hex(.background)) < 0.179 }
-    var hasLowContrast: Bool { preferences.contrastRatio < 4.5 }
+    // Kept independent of the view/material layer for model-only tools and checks.
+    static var supportsNativeAppearance: Bool {
+        #if compiler(>=6.2)
+        if #available(macOS 26.0, *) { return true }
+        #endif
+        return false
+    }
+    var usesNativeAppearance: Bool { Self.supportsNativeAppearance && preferences.palette == .nativeGlass }
+    var preferredColorScheme: ColorScheme? { usesNativeAppearance ? nil : (isDark ? .dark : .light) }
+    var hasLowContrast: Bool { !usesNativeAppearance && preferences.contrastRatio < 4.5 }
 
     init(store: AppearanceStore? = nil, originalIcon: NSImage? = nil) {
         let root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -35,7 +44,20 @@ final class AppearanceModel: ObservableObject {
     }
 
     func hex(_ role: AppearanceColorRole) -> String { preferences.colors[role]! }
-    func color(_ role: AppearanceColorRole) -> Color { Color(nsColor: Self.nsColor(hex(role))) }
+    func color(_ role: AppearanceColorRole) -> Color {
+        Color(nsColor: usesNativeAppearance ? Self.systemColor(role) : Self.nsColor(hex(role)))
+    }
+
+    // Keep NSColor semantic: resolving to RGB here would freeze the current appearance.
+    static func systemColor(_ role: AppearanceColorRole) -> NSColor {
+        switch role {
+        case .background: .windowBackgroundColor
+        case .sidebar: .underPageBackgroundColor
+        case .surface: .controlBackgroundColor
+        case .accent: .controlAccentColor
+        case .text: .labelColor
+        }
+    }
 
     static func nsColor(_ hex: String) -> NSColor {
         let rgb = UInt32(hex.dropFirst(), radix: 16) ?? 0

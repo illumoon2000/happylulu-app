@@ -3,7 +3,7 @@ import ImageIO
 import AfterSixCore
 
 func checkAppearancePreferences() throws {
-    expectEqual(AppearancePalette.allCases.count, 6)
+    expectEqual(AppearancePalette.allCases.count, 7)
     expectEqual(AppearanceIcon.allCases.count, 6) // Five bundled choices plus imported image.
     expectEqual(AppearancePalette.softMint.colors[.background], "#E9EFEB")
     expectEqual(AppearancePalette.charcoal.colors[.text], "#E0E7E4")
@@ -22,8 +22,8 @@ func checkAppearancePreferences() throws {
     for invalid in ["FFF", "#FFFF", "#12345678", "#GG0000", "123456", "#１２３４５６"] {
         expectThrows(try AppearancePreferences.normalizedHex(invalid))
     }
-    // Existing raw values, custom colors and icon selections must survive the new default.
-    for raw in ["softMint", "warmStone", "blueGray", "dustyLavender", "charcoal"] {
+    // Existing raw values, custom colors and icon selections must survive an added theme.
+    for raw in ["softMint", "warmStone", "blueGray", "dustyLavender", "charcoal", "offwhiteLilac"] {
         let data = Data(("{\"version\":1,\"palette\":\"" + raw + "\",\"customColors\":{\"accent\":\"#123456\"},\"icon\":\"blue\"}").utf8)
         let saved = try JSONDecoder().decode(AppearancePreferences.self, from: data)
         expectEqual(saved.palette.rawValue, raw)
@@ -51,10 +51,39 @@ func checkAppearancePreferences() throws {
     preferences.selectPalette(.warmStone)
     expectEqual(preferences.icon, .blue)
 
+    var native = preferences
+    try native.setColor("#123456", for: .accent)
+    native.selectPalette(.nativeGlass)
+    expectTrue(native.customColors.isEmpty)
+    expectEqual(native.icon, .blue)
+    expectEqual(native.colors.count, AppearanceColorRole.allCases.count)
+    for color in native.colors.values { try expectEqual(try AppearancePreferences.normalizedHex(color), color) }
+    // Imported/stale custom values must not tint the native theme, including after reload.
+    native.customColors = ["background": "#102030", "accent": "#ABCDEF"]
+    expectEqual(native.colors, AppearancePalette.nativeGlass.colors)
+    let nativeBeforeEdit = native
+    try native.setColor("#654321", for: .text)
+    expectEqual(native, nativeBeforeEdit)
+    expectThrows(try native.setColor("red", for: .text))
+    expectEqual(native, nativeBeforeEdit)
+    try expectEqual(try JSONDecoder().decode(AppearancePreferences.self, from: JSONEncoder().encode(native)), native)
+    var returnedToCustom = native
+    returnedToCustom.selectPalette(.warmStone)
+    expectTrue(returnedToCustom.customColors.isEmpty)
+    try returnedToCustom.setColor("#654321", for: .text)
+    expectEqual(returnedToCustom.colors[.text], "#654321")
+    expectEqual(returnedToCustom.icon, native.icon)
+
     let root = FileManager.default.temporaryDirectory.appendingPathComponent("appearance-check-" + UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: root) }
     let production = AppearanceStore(rootDirectory: root, bundleIdentifier: "test.happylulu")
     let development = AppearanceStore(rootDirectory: root, bundleIdentifier: "test.happylulu.dev")
+    let nativeStore = AppearanceStore(rootDirectory: root, bundleIdentifier: "test.happylulu.native")
+    try nativeStore.save(native)
+    let reloadedNative = try AppearanceStore(rootDirectory: root, bundleIdentifier: "test.happylulu.native").load()
+    expectEqual(reloadedNative, native)
+    expectEqual(reloadedNative?.colors, AppearancePalette.nativeGlass.colors)
+    expectEqual(reloadedNative?.icon, .blue)
     expectTrue(production.directory != development.directory)
     try expectEqual(try production.load(), nil)
     expectFalse(FileManager.default.fileExists(atPath: production.directory.path))
@@ -137,5 +166,5 @@ func checkAppearancePreferences() throws {
     let unwritable = AppearanceStore(rootDirectory: blockedRoot, bundleIdentifier: "test")
     expectThrows(try unwritable.save(AppearancePreferences()))
     expectTrue(FileManager.default.fileExists(atPath: blockedRoot.path))
-    print("PASS appearance: six palettes, legacy persistence, HEX/contrast, independent icons, atomic isolated persistence, corrupt/read-only, validated image references and write failures")
+    print("PASS appearance: seven palettes, native theme persistence/custom-color isolation, legacy persistence, HEX/contrast, independent icons, atomic isolated persistence, corrupt/read-only, validated image references and write failures")
 }

@@ -16,7 +16,7 @@ with pathlib.Path(sys.argv[1]).open('wb') as stream:
         CFBundleExecutable='AppearanceProbe', CFBundlePackageType='APPL', LSUIElement=True), stream)
 PY2
 swiftc -parse-as-library -swift-version 6 -I "$build_dir/Modules" \
-  Sources/AfterSix/AppLanguage.swift Sources/AfterSix/LuluBrand.swift Sources/AfterSix/AppearanceModel.swift Tests/AppearanceModelProbe/main.swift \
+  Sources/AfterSix/AppLanguage.swift Sources/AfterSix/LuluBrand.swift Sources/AfterSix/AppearanceModel.swift Sources/AfterSix/LuluMaterials.swift Tests/AppearanceModelProbe/main.swift \
   "$build_dir"/AfterSixCore.build/*.swift.o -framework AppKit -framework CoreImage \
   -o "$app/Contents/MacOS/AppearanceProbe"
 "$app/Contents/MacOS/AppearanceProbe" "$probe_dir/data" "$PWD/Resources/HappyLuluIcon.png"

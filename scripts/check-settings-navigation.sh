@@ -1,6 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
+case "${HAPPY_LULU_MATERIAL_MODE:-automatic}" in
+  automatic|legacy) ;;
+  *) echo "HAPPY_LULU_MATERIAL_MODE must be automatic or legacy" >&2; exit 64 ;;
+esac
 if [[ "${HAPPY_LULU_SKIP_BUILD:-0}" != "1" ]]; then
   swift build --build-system native --product HappyLulu >/dev/null
 fi
@@ -29,6 +33,7 @@ swiftc -parse-as-library -swift-version 6 -target "$(uname -m)-apple-macosx13.0"
   -I "$build_dir/Modules" -F "$frameworks" -Xlinker -rpath -Xlinker "$frameworks" \
   Sources/AfterSix/AppLanguage.swift Sources/AfterSix/AppModel.swift Sources/AfterSix/AppUpdater.swift \
   Sources/AfterSix/LuluBrand.swift \
+  Sources/AfterSix/LuluMaterials.swift \
   Sources/AfterSix/CalendarSyncModel.swift Sources/AfterSix/HalfDayCalendarReader.swift \
   Sources/AfterSix/DefaultFeatureAdapter.swift Sources/AfterSix/PluginManagerModel.swift \
   Sources/AfterSix/BundledPlugins.swift Sources/AfterSix/FeatureCalendarModel.swift \

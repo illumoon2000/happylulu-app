@@ -72,6 +72,40 @@ struct PanelFocusProbe {
         defer { UserDefaults.standard.removePersistentDomain(forName: identity) }
         let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
         let timeZone = TimeZone(identifier: CommandLine.arguments[2])!
+        checkPlacement()
+        for usesMenuBarPanel in [false, true] {
+            try checkFocus(root: root.appendingPathComponent(usesMenuBarPanel ? "arrowless" : "legacy"),
+                           timeZone: timeZone, usesMenuBarPanel: usesMenuBarPanel)
+        }
+    }
+
+    @MainActor private static func checkPlacement() {
+        let cases: [(String, NSRect, NSRect, NSRect)] = [
+            ("center", NSRect(x: 700, y: 876, width: 40, height: 24),
+             NSRect(x: 0, y: 0, width: 1440, height: 876), NSRect(x: 538, y: 520, width: 364, height: 350)),
+            ("left edge", NSRect(x: 0, y: 876, width: 24, height: 24),
+             NSRect(x: 0, y: 0, width: 1440, height: 876), NSRect(x: 8, y: 520, width: 364, height: 350)),
+            ("right edge", NSRect(x: 1408, y: 876, width: 32, height: 24),
+             NSRect(x: 0, y: 0, width: 1440, height: 876), NSRect(x: 1068, y: 520, width: 364, height: 350)),
+            ("negative-coordinate monitor", NSRect(x: -1640, y: 1080, width: 40, height: 24),
+             NSRect(x: -1920, y: 23, width: 1920, height: 1057), NSRect(x: -1802, y: 724, width: 364, height: 350)),
+            ("raised secondary monitor", NSRect(x: 1940, y: 1900, width: 40, height: 24),
+             NSRect(x: 1440, y: 900, width: 1280, height: 1000), NSRect(x: 1778, y: 1544, width: 364, height: 350)),
+            ("dock reduces usable frame", NSRect(x: 1408, y: 876, width: 32, height: 24),
+             NSRect(x: 0, y: 70, width: 1380, height: 806), NSRect(x: 1008, y: 520, width: 364, height: 350)),
+            ("compact usable frame", NSRect(x: 130, y: 240, width: 40, height: 24),
+             NSRect(x: 0, y: 0, width: 300, height: 240), NSRect(x: 8, y: 8, width: 284, height: 226)),
+            ("anchor below visible top", NSRect(x: 700, y: 850, width: 40, height: 24),
+             NSRect(x: 0, y: 0, width: 1440, height: 876), NSRect(x: 538, y: 494, width: 364, height: 350))
+        ]
+        for (name, anchor, visible, expected) in cases {
+            let frame = MenuBarPanel.frame(anchor: anchor, visibleFrame: visible, size: NSSize(width: 364, height: 350))
+            precondition(frame == expected && visible.contains(frame), "Wrong menu-panel placement: \(name), \(frame)")
+        }
+        print("PASS menu-panel placement: 8 center/edge/multi-monitor/dock/compact-frame cases")
+    }
+
+    @MainActor private static func checkFocus(root: URL, timeZone: TimeZone, usesMenuBarPanel: Bool) throws {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = timeZone
         let fixtureCalendar = calendar
@@ -100,12 +134,45 @@ struct PanelFocusProbe {
         var settingsOpens = 0
         let panel = PanelView(model: model, calendarSync: sync, plugins: manager,
                               onOpenHistory: {}, onOpenSettings: { settingsOpens += 1 })
-        let host = NSHostingView(rootView: panel)
-        let window = NSWindow(contentRect: NSRect(x: -10000, y: -10000, width: 364, height: 350),
-                              styleMask: [.titled], backing: .buffered, defer: false)
-        window.contentView = host
-        window.orderFront(nil)
-        defer { window.orderOut(nil) }
+        let controller = NSHostingController(rootView: panel)
+        let host = controller.view
+        let popup = usesMenuBarPanel ? MenuBarPanel(content: controller) : nil
+        let window: NSWindow = popup ?? NSWindow(contentRect: NSRect(x: -10000, y: -10000, width: 364, height: 350),
+                                                styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        // A transparent synthetic anchor stays on a real display so window.screen is
+        // available. No actual NSStatusItem or production menu-bar icon is created.
+        let screen = NSScreen.main!
+        let anchorWindow = NSWindow(contentRect: NSRect(x: screen.visibleFrame.midX, y: screen.visibleFrame.maxY - 60,
+                                                       width: 40, height: 24),
+                                    styleMask: [.titled], backing: .buffered, defer: false)
+        anchorWindow.isReleasedWhenClosed = false
+        anchorWindow.alphaValue = 0
+        let anchor = NSStatusBarButton(frame: NSRect(x: 0, y: 0, width: 40, height: 24))
+        anchorWindow.contentView = anchor
+        if let popup {
+            anchorWindow.orderFront(nil)
+            popup.show(relativeTo: anchor)
+            let top = popup.frame.maxY
+            for height in [CGFloat(390), 430, 350] {
+                popup.updateContentSize(NSSize(width: 364, height: height))
+                precondition(popup.frame.height == height && abs(popup.frame.maxY - top) < 0.5,
+                             "Usage rows must resize the popup while keeping its menu-bar anchor")
+            }
+            print("PASS arrowless size: usage off/on/two rows keeps the top anchor")
+            popup.setFrameOrigin(NSPoint(x: -10000, y: -10000))
+            precondition(popup.isVisible && popup.contentViewController === controller && popup.canBecomeKey,
+                         "Arrowless host did not show its production content")
+        } else {
+            window.contentViewController = controller
+            window.orderFront(nil)
+        }
+        defer {
+            popup?.dismiss()
+            window.orderOut(nil)
+            anchorWindow.orderOut(nil)
+            anchorWindow.close()
+        }
         pump(host)
         let fields = descendants(host).compactMap { $0 as? NSTextField }.filter { $0.cell is ArrivalClockDigitCell }
             .sorted { $0.convert(.zero, to: host).x < $1.convert(.zero, to: host).x }
@@ -155,7 +222,66 @@ struct PanelFocusProbe {
         precondition(saves == 1 && attributes[.systemFileNumber] as? NSNumber == repeated[.systemFileNumber] as? NSNumber &&
                      attributes[.modificationDate] as? Date == repeated[.modificationDate] as? Date,
                      "Repeated outside click saved the same draft again")
+        if let popup {
+            func reopenedFields() -> [NSTextField] {
+                popup.show(relativeTo: anchor)
+                popup.setFrameOrigin(NSPoint(x: -10000, y: -10000))
+                pump(host)
+                precondition(popup.isVisible && popup.contentViewController === controller)
+                return descendants(host).compactMap { $0 as? NSTextField }.filter { $0.cell is ArrivalClockDigitCell }
+                    .sorted { $0.convert(.zero, to: host).x < $1.convert(.zero, to: host).x }
+            }
+            popup.dismiss()
+            pump(host)
+            precondition(!popup.isVisible && popup.contentViewController == nil && saves == 1)
+            let cancelledFields = reopenedFields()
+            precondition(cancelledFields.map { $0.stringValue } == ["0", "8", "1", "2"],
+                         "Reopening retained stale clock text")
+            precondition(popup.makeFirstResponder(cancelledFields[0]))
+            let cancelEditor = cancelledFields[0].currentEditor() as! ArrivalClockFieldEditor
+            cancelEditor.readPasteboard = { "08:13" }
+            cancelEditor.paste(nil)
+            cancelEditor.doCommand(by: #selector(NSResponder.cancelOperation(_:)))
+            pump(host)
+            precondition(popup.isVisible && saves == 1 &&
+                         descendants(host).allSatisfy { !(($0 as? NSTextField)?.cell is ArrivalClockDigitCell) },
+                         "Editor Escape must cancel the draft without dismissing the panel or saving")
+            popup.dismiss()
+            pump(host)
+            let dismissedFields = reopenedFields()
+            precondition(dismissedFields.map { $0.stringValue } == ["0", "8", "1", "2"])
+            precondition(popup.makeFirstResponder(dismissedFields[0]))
+            let dismissEditor = dismissedFields[0].currentEditor() as! ArrivalClockFieldEditor
+            dismissEditor.readPasteboard = { "08:14" }
+            dismissEditor.paste(nil)
+            pump(host)
+            precondition(saves == 1, "Pasting into the popup saved before dismissal")
+            popup.dismiss()
+            pump(host)
+            let dismissedState = try store.load()
+            precondition(!popup.isVisible && popup.contentViewController == nil && saves == 2 &&
+                         Attendance.clockLabel(dismissedState.arrivals[model.dayKey(model.now)]!.time,
+                                               timeZone: timeZone) == "08:14",
+                         "Dismissing a focused popup must persist its edited clock exactly once")
+            let afterDismiss = try Data(contentsOf: store.url)
+            popup.dismiss()
+            pump(host)
+            let afterRepeatedDismiss = try Data(contentsOf: store.url)
+            precondition(saves == 2 && afterRepeatedDismiss == afterDismiss)
+            let finalFields = reopenedFields()
+            precondition(finalFields.map { $0.stringValue } == ["0", "8", "1", "4"] && saves == 2,
+                         "Reopened popup did not restore the just-saved time")
+            popup.cancelOperation(nil)
+            pump(host)
+            precondition(!popup.isVisible && saves == 2, "Panel fallback Escape did not dismiss without another save")
+            print("PASS arrowless lifecycle: editor Escape cancels, dismiss saves once, repeated dismiss is inert, reopening restores state, panel Escape closes")
+        }
         withExtendedLifetime(observation) {}
+        if let popup {
+            popup.show(relativeTo: anchor)
+            popup.setFrameOrigin(NSPoint(x: -10000, y: -10000))
+            pump(host)
+        }
         let beforeMenus = try Data(contentsOf: store.url)
         for point in [NSPoint(x: 321, y: 17), NSPoint(x: 347, y: 43)] {
             precondition(openHeaderMenu(in: host, window: window, at: point) != nil,

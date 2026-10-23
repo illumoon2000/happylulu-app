@@ -30,6 +30,7 @@ swiftc -parse-as-library -swift-version 6 -target "$(uname -m)-apple-macosx13.0"
   -I "$build_dir/Modules" -F "$frameworks" -Xlinker -rpath -Xlinker "$frameworks" \
   Sources/AfterSix/AppLanguage.swift Sources/AfterSix/AppModel.swift Sources/AfterSix/AppUpdater.swift \
   Sources/AfterSix/LuluBrand.swift Sources/AfterSix/ApplicationMenu.swift \
+  Sources/AfterSix/LuluMaterials.swift Sources/AfterSix/MenuBarPanel.swift Sources/AfterSix/SettingsWindowChrome.swift \
   Sources/AfterSix/CalendarSyncModel.swift Sources/AfterSix/HalfDayCalendarReader.swift \
   Sources/AfterSix/DefaultFeatureAdapter.swift Sources/AfterSix/PluginManagerModel.swift \
   Sources/AfterSix/BundledPlugins.swift Sources/AfterSix/FeatureCalendarModel.swift \
@@ -47,8 +48,10 @@ swiftc -parse-as-library -swift-version 6 -target "$(uname -m)-apple-macosx13.0"
   -framework AppKit -framework SwiftUI -framework CoreImage -framework Security \
   -framework EventKit -framework ServiceManagement -framework UserNotifications -framework Sparkle -lsqlite3 \
   -o "$app/Contents/MacOS/UsageProbe"
-"$app/Contents/MacOS/UsageProbe" "$probe_dir/data" "$PWD/Resources/HappyLuluIcon.png"
+status=0
+"$app/Contents/MacOS/UsageProbe" "$probe_dir/data" "$PWD/Resources/HappyLuluIcon.png" || status=$?
 if [[ -n "${HAPPY_LULU_USAGE_EVIDENCE:-}" ]]; then
   mkdir -p "$HAPPY_LULU_USAGE_EVIDENCE"
   cp "$probe_dir/data/"*.png "$HAPPY_LULU_USAGE_EVIDENCE/"
 fi
+exit "$status"
